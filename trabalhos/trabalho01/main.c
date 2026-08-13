@@ -1,5 +1,3 @@
-#define _POSIX_C_SOURCE 199309L
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -22,6 +20,16 @@
 #define NAVE_GRANDE 10
 #define NAVE_PEQUENA 11
 
+// armas
+
+#define ARMA_N 10
+
+// tiros
+
+#define RESULTADO_ERROU 0
+#define RESULTADO_DESTRUIU 1
+#define RESULTADO_CONVERTEU 2
+
 // estruturas
 
 // estrutura principal do jogo
@@ -31,6 +39,8 @@ typedef struct Partida
     unsigned char armaAtual;
     unsigned char quantidadeEscudos;
     unsigned char municao;
+    unsigned char ataquesInativos;
+    double intervaloMovimento;
 
     unsigned int pontuacao;
 
@@ -59,6 +69,20 @@ void desenharMenuPrincipal();
 void menuPrincipal(Programa *programa);
 void iniciarNovaPartida(Programa *programa);
 void desenharAtaqueDiurno(Programa *programa);
+void alternarArma(Programa *programa);
+int armaCorrespondeInimigo(Programa *programa, int i);
+void derrotarInimigoDiurno(Programa *programa);
+void atirar(Programa *programa);
+int indexEscudoParaDestruir(Programa *programa);
+void destruirEscudo(Programa *programa, int i);
+void atualizarCampoDiurno(Programa *programa);
+void processarComandoDiurno(Programa *programa, char c);
+int gerarTipoAtaque();
+void nascerAtaqueDiurno(Programa *programa);
+void tickOndaDiurna(Programa *programa);
+int ondaDiurnaTerminou(Programa *programa);
+void iniciarOndaDiurna(Programa *programa);
+void ondaDiurna(Programa *programa);
 
 // funcoes
 
@@ -131,17 +155,16 @@ void desenharMenuPrincipal()
 
 void menuPrincipal(Programa *programa)
 {
-    char buffer[2];
-    int tam = 0;
-    buffer[0] = '\0';
+    char areaTecla[2];
+    int tamanhoAreaTecla = 0;
+    areaTecla[0] = '\0';
 
     desenharMenuPrincipal();
 
     for (;;)
     {
         char c = lechar();
-        if (c == 0)
-            continue;
+        if (c == 0) continue;
 
         if (c == '\r' || c == '\n')
         {
@@ -149,23 +172,23 @@ void menuPrincipal(Programa *programa)
         }
         else if (c == 127 || c == 8)
         {
-            if (tam > 0)
+            if (tamanhoAreaTecla > 0)
             {
-                tam--;
-                buffer[tam] = '\0';
+                tamanhoAreaTecla--;
+                areaTecla[tamanhoAreaTecla] = '\0';
                 printf("\b \b");
             }
         }
-        else if (tam < 1)
+        else if (tamanhoAreaTecla < 1)
         {
-            buffer[tam] = c;
-            tam++;
-            buffer[tam] = '\0';
+            areaTecla[tamanhoAreaTecla] = c;
+            tamanhoAreaTecla++;
+            areaTecla[tamanhoAreaTecla] = '\0';
             putchar(c);
         }
     }
 
-    int escolha = atoi(buffer);
+    int escolha = atoi(areaTecla);
 
     switch (escolha)
     {
@@ -213,7 +236,7 @@ void desenharAtaqueDiurno(Programa *programa)
             programa->partidaAtual.pontuacao,
             programa->partidaAtual.municao,
             programa->partidaAtual.armaAtual);
-    } else if (programa->partidaAtual.armaAtual == NAVE_GRANDE) {
+    } else if (programa->partidaAtual.armaAtual == ARMA_N) {
         printf("%3d %2d n",
             programa->partidaAtual.pontuacao,
             programa->partidaAtual.municao
@@ -246,6 +269,205 @@ void desenharAtaqueDiurno(Programa *programa)
     }
 }
 
+void alternarArma(Programa *programa) {
+    if (programa->partidaAtual.armaAtual < ARMA_N)
+    {
+        programa->partidaAtual.armaAtual++;
+    } else {
+        programa->partidaAtual.armaAtual = 0;
+    }
+}
+
+int armaCorrespondeInimigo(Programa *programa, int i)
+{
+    int arma = programa->partidaAtual.armaAtual;
+    int inimigo = programa->partidaAtual.campoAtaquesDiurnos[i];
+
+    if (arma == ARMA_N && inimigo == NAVE_GRANDE)
+    {
+        return RESULTADO_CONVERTEU;
+    }
+    if (arma == ARMA_N && inimigo == NAVE_PEQUENA)
+    {
+        return RESULTADO_DESTRUIU;
+    }
+    if (arma == inimigo)
+    {
+        return RESULTADO_DESTRUIU;
+    }
+
+    return RESULTADO_ERROU;
+}
+
+void derrotarInimigoDiurno(Programa *programa) {
+    for (int i = 0; i < 13; i++)
+    {
+        if (programa->partidaAtual.campoAtaquesDiurnos[i] == ESCUDO ||
+            programa->partidaAtual.campoAtaquesDiurnos[i] == VAZIO)
+        {
+            continue;
+        }
+        
+        int resultado = armaCorrespondeInimigo(programa, i);
+
+        if (resultado == RESULTADO_CONVERTEU)
+        {
+            programa->partidaAtual.campoAtaquesDiurnos[i] = NAVE_PEQUENA;
+            break;
+        } else if (resultado == RESULTADO_DESTRUIU)
+        {
+            programa->partidaAtual.campoAtaquesDiurnos[i] = VAZIO;
+            break;
+        }
+    }
+}
+
+void atirar(Programa *programa) {
+    if (programa->partidaAtual.municao <= 0) return;
+
+    programa->partidaAtual.municao--;
+
+    derrotarInimigoDiurno(programa);
+}
+
+int indexEscudoParaDestruir(Programa *programa)
+{
+    for (int i = 2; i >= 0; i--)
+    {
+        if (programa->partidaAtual.campoAtaquesDiurnos[i] == ESCUDO)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void destruirEscudo(Programa *programa, int i)
+{
+    programa->partidaAtual.campoAtaquesDiurnos[i] = VAZIO;
+    programa->partidaAtual.quantidadeEscudos--;
+}
+
+void atualizarCampoDiurno(Programa *programa)
+{
+    int atacanteQueSai = programa->partidaAtual.campoAtaquesDiurnos[3];
+
+    if (atacanteQueSai != VAZIO)
+    {
+        int indiceEscudo = indexEscudoParaDestruir(programa);
+
+        if (indiceEscudo != -1)
+        {
+            destruirEscudo(programa, indiceEscudo);
+        }
+        else
+        {
+            programa->estado = ESTADO_MENU_FIM_PARTIDA;
+        }
+    }
+
+    for (int i = 4; i < 13; i++)
+    {
+        programa->partidaAtual.campoAtaquesDiurnos[i - 1] = programa->partidaAtual.campoAtaquesDiurnos[i];
+    }
+
+    programa->partidaAtual.campoAtaquesDiurnos[12] = VAZIO;
+}
+
+void processarComandoDiurno(Programa *programa, char c)
+{
+    switch (c)
+    {
+    case 9:
+        alternarArma(programa);
+        break;
+
+    case 13:
+        atirar(programa);
+        break;
+
+    case 27:
+        finalizarPrograma(programa);
+        exit(0);
+
+    default:
+        break;
+    }
+}
+
+int gerarTipoAtaque()
+{
+    int r = rand() % 11;
+    if (r == 10) return NAVE_GRANDE;
+    return r;
+}
+
+void nascerAtaqueDiurno(Programa *programa)
+{
+    if (programa->partidaAtual.ataquesInativos == 0) return;
+
+    programa->partidaAtual.campoAtaquesDiurnos[12] = gerarTipoAtaque();
+    programa->partidaAtual.ataquesInativos--;
+}
+
+void tickOndaDiurna(Programa *programa)
+{
+    atualizarCampoDiurno(programa);
+    nascerAtaqueDiurno(programa);
+}
+
+int ondaDiurnaTerminou(Programa *programa)
+{
+    if (programa->partidaAtual.ataquesInativos > 0) return 0;
+
+    for (int i = 3; i < 13; i++)
+    {
+        if (programa->partidaAtual.campoAtaquesDiurnos[i] != VAZIO) return 0;
+    }
+
+    return 1;
+}
+
+void iniciarOndaDiurna(Programa *programa)
+{
+    programa->partidaAtual.municao = 30;
+    programa->partidaAtual.ataquesInativos = 20;
+    programa->partidaAtual.intervaloMovimento = 2.0;
+
+    for (int i = 3; i < 13; i++)
+    {
+        programa->partidaAtual.campoAtaquesDiurnos[i] = VAZIO;
+    }
+}
+
+void ondaDiurna(Programa *programa)
+{
+    system("clear");
+    iniciarOndaDiurna(programa);
+
+    crono cronometro;
+    crono_inicia(&cronometro);
+
+    while (programa->estado == ESTADO_RODADA_DIURNA && !ondaDiurnaTerminou(programa))
+    {
+        desenharAtaqueDiurno(programa);
+        printf("\r");
+        fflush(stdout);
+
+        char c = lechar();
+        if (c != 0)
+        {
+            processarComandoDiurno(programa, c);
+        }
+
+        if (crono_parcial(&cronometro) >= programa->partidaAtual.intervaloMovimento)
+        {
+            tickOndaDiurna(programa);
+            crono_inicia(&cronometro);
+        }
+    }
+}
+
 int main()
 {
     Programa programa;
@@ -268,7 +490,7 @@ int main()
             break;
 
         case ESTADO_RODADA_DIURNA:
-
+            ondaDiurna(&programa);
             break;
 
         case ESTADO_RODADA_NOTURNA:
