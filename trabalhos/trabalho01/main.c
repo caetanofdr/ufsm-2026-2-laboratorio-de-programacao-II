@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 199309L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -17,15 +19,16 @@
 
 #define ESCUDO -1
 #define VAZIO -2
+#define NAVE_GRANDE 10
+#define NAVE_PEQUENA 11
 
 // estruturas
 
 // estrutura principal do jogo
 
-typedef struct  Partida
+typedef struct Partida
 {
     unsigned char armaAtual;
-    unsigned char tipoOrda;
     unsigned char quantidadeEscudos;
     unsigned char municao;
 
@@ -43,14 +46,32 @@ typedef struct Programa
 
 typedef struct timespec crono;
 
+// protopipos
+
+void configura_terminal();
+void normaliza_terminal();
+char lechar();
+void crono_inicia(crono *c);
+double crono_parcial(crono *c);
+void inicializarPrograma(Programa *programa);
+void finalizarPrograma(Programa *programa);
+void desenharMenuPrincipal();
+void menuPrincipal(Programa *programa);
+void iniciarNovaPartida(Programa *programa);
+void desenharAtaqueDiurno(Programa *programa);
+
+// funcoes
+
 void configura_terminal()
 {
-    if (system("stty raw opost -echo min 0 time 1") != 0) {
+    if (system("stty raw opost -echo min 0 time 1") != 0)
+    {
         perror("erro na execução de system(\"stty\")");
         fprintf(stderr, "você tem o programa stty instalado?\n");
         exit(1);
     };
-    if (setvbuf(stdin, NULL, _IONBF, 0) != 0) {
+    if (setvbuf(stdin, NULL, _IONBF, 0) != 0)
+    {
         perror("erro na execução de setvbuf()");
         exit(1);
     }
@@ -66,7 +87,8 @@ char lechar()
     fflush(stdout);
     clearerr(stdin); // coloquei isso aqui pois sem nao roda no meu pc
     char c;
-    if (fread(&c, 1, 1, stdin) == 1) return c;
+    if (fread(&c, 1, 1, stdin) == 1)
+        return c;
     return 0;
 }
 
@@ -84,7 +106,7 @@ double crono_parcial(crono *c)
     return segundos + 1e-9 * nanosegundos;
 }
 
-void inicializarPrograma(Programa *programa) 
+void inicializarPrograma(Programa *programa)
 {
     configura_terminal();
 
@@ -118,12 +140,14 @@ void menuPrincipal(Programa *programa)
     for (;;)
     {
         char c = lechar();
-        if (c == 0) continue;
+        if (c == 0)
+            continue;
 
         if (c == '\r' || c == '\n')
         {
             break;
-        } else if (c == 127 || c == 8)
+        }
+        else if (c == 127 || c == 8)
         {
             if (tam > 0)
             {
@@ -131,7 +155,8 @@ void menuPrincipal(Programa *programa)
                 buffer[tam] = '\0';
                 printf("\b \b");
             }
-        } else if (tam < 1)
+        }
+        else if (tam < 1)
         {
             buffer[tam] = c;
             tam++;
@@ -145,7 +170,7 @@ void menuPrincipal(Programa *programa)
     switch (escolha)
     {
     case 1:
-        programa->estado = ESTADO_RODADA_DIURNA;
+        iniciarNovaPartida(programa);
         break;
     case 2:
         programa->estado = ESTADO_MENU_MELHORES_POTUACOES;
@@ -159,11 +184,73 @@ void menuPrincipal(Programa *programa)
     }
 }
 
+void iniciarNovaPartida(Programa *programa)
+{
+    programa->estado = ESTADO_RODADA_DIURNA;
+
+    programa->partidaAtual.armaAtual = 0;
+    programa->partidaAtual.pontuacao = 0;
+    programa->partidaAtual.municao = 30;
+    programa->partidaAtual.quantidadeEscudos = 3;
+
+    for (int i = 0; i < 13; i++)
+    {
+        if (i < 3)
+        {
+            programa->partidaAtual.campoAtaquesDiurnos[i] = ESCUDO;
+        }
+        else if (i > 2 && i < 13)
+        {
+            programa->partidaAtual.campoAtaquesDiurnos[i] = VAZIO;
+        }
+    }
+}
+
+void desenharAtaqueDiurno(Programa *programa)
+{
+    if (programa->partidaAtual.armaAtual <= 9) {
+        printf("%3d %2d %2d",
+            programa->partidaAtual.pontuacao,
+            programa->partidaAtual.municao,
+            programa->partidaAtual.armaAtual);
+    } else if (programa->partidaAtual.armaAtual == NAVE_GRANDE) {
+        printf("%3d %2d n",
+            programa->partidaAtual.pontuacao,
+            programa->partidaAtual.municao
+        );
+    }
+
+    for (int i = 0; i < 13; i++)
+    {
+        if (programa->partidaAtual.campoAtaquesDiurnos[i] == ESCUDO)
+        {
+            printf(")");
+        }
+        else if (programa->partidaAtual.campoAtaquesDiurnos[i] == VAZIO)
+        {
+            printf(" ");
+        }
+        else if (programa->partidaAtual.campoAtaquesDiurnos[i] >= 0 &&
+                 programa->partidaAtual.campoAtaquesDiurnos[i] <= 9)
+        {
+            printf("%d", programa->partidaAtual.campoAtaquesDiurnos[i]);
+        }
+        else if (programa->partidaAtual.campoAtaquesDiurnos[i] == NAVE_GRANDE)
+        {
+            printf("N");
+        }
+        else if (programa->partidaAtual.campoAtaquesDiurnos[i] == NAVE_PEQUENA)
+        {
+            printf("n");
+        }
+    }
+}
+
 int main()
 {
     Programa programa;
     inicializarPrograma(&programa);
-    
+
     do
     {
         switch (programa.estado)
@@ -171,9 +258,9 @@ int main()
         case ESTADO_MENU_PRICIPAL:
             menuPrincipal(&programa);
             break;
-        
+
         case ESTADO_MENU_FIM_PARTIDA:
-            
+
             break;
 
         case ESTADO_MENU_MELHORES_POTUACOES:
@@ -192,7 +279,7 @@ int main()
             break;
         }
     } while (programa.estado != ESTADO_FIM_PROGRAMA);
-    
+
     finalizarPrograma(&programa);
     return 0;
 }
