@@ -9,9 +9,15 @@
 #define ESTADO_MENU_PRICIPAL 0
 #define ESTADO_MENU_FIM_PARTIDA 1
 #define ESTADO_MENU_MELHORES_POTUACOES 2
-#define ESTADO_RODADA_DIURNA 3
-#define ESTADO_RODADA_NOTURNA 4
+#define ESTADO_ONDA_DIURNA 3
+#define ESTADO_ONDA_NOTURNA 4
+#define ESTADO_ONDA_SORTEAR 5
 #define ESTADO_FIM_PROGRAMA -1
+
+// tipo de ondas
+
+#define ONDA_DIURNA 0
+#define ONDA_NOTURNA 1
 
 // elementos do campo
 
@@ -40,9 +46,12 @@ typedef struct Partida
     unsigned char quantidadeEscudos;
     unsigned char municao;
     unsigned char ataquesInativos;
+    unsigned char tipoOndaAtual;
+
     double intervaloMovimento;
 
     unsigned int pontuacao;
+    unsigned int ondasFinalizadas;
 
     int campoAtaquesDiurnos[13];
     int campoAtaquesNoturnos[8];
@@ -77,7 +86,7 @@ int indexEscudoParaDestruir(Programa *programa);
 void destruirEscudo(Programa *programa, int i);
 void atualizarCampoDiurno(Programa *programa);
 void processarComandoDiurno(Programa *programa, char c);
-int gerarTipoAtaque();
+int gerarTipoAtaqueDiurno();
 void nascerAtaqueDiurno(Programa *programa);
 void tickOndaDiurna(Programa *programa);
 int ondaDiurnaTerminou(Programa *programa);
@@ -207,15 +216,7 @@ void menuPrincipal(Programa *programa)
     }
 }
 
-void iniciarNovaPartida(Programa *programa)
-{
-    programa->estado = ESTADO_RODADA_DIURNA;
-
-    programa->partidaAtual.armaAtual = 0;
-    programa->partidaAtual.pontuacao = 0;
-    programa->partidaAtual.municao = 30;
-    programa->partidaAtual.quantidadeEscudos = 3;
-
+void inicializarCampoAtaqueDiurno(Programa *programa) {
     for (int i = 0; i < 13; i++)
     {
         if (i < 3)
@@ -229,8 +230,19 @@ void iniciarNovaPartida(Programa *programa)
     }
 }
 
-void desenharAtaqueDiurno(Programa *programa)
+void iniciarNovaPartida(Programa *programa)
 {
+    programa->partidaAtual.armaAtual = 0;
+    programa->partidaAtual.pontuacao = 0;
+    programa->partidaAtual.municao = 30;
+    programa->partidaAtual.quantidadeEscudos = 3;
+    programa->partidaAtual.ondasFinalizadas = 0;
+    inicializarCampoAtaqueDiurno(programa);
+
+    programa->estado = ESTADO_ONDA_SORTEAR;
+}
+
+void desenhaDadosDiurno(Programa *programa) {
     if (programa->partidaAtual.armaAtual <= 9) {
         printf("%3d %2d %2d",
             programa->partidaAtual.pontuacao,
@@ -242,7 +254,9 @@ void desenharAtaqueDiurno(Programa *programa)
             programa->partidaAtual.municao
         );
     }
+}
 
+void desenhaCampoDiurno(Programa *programa) {
     for (int i = 0; i < 13; i++)
     {
         if (programa->partidaAtual.campoAtaquesDiurnos[i] == ESCUDO)
@@ -267,6 +281,12 @@ void desenharAtaqueDiurno(Programa *programa)
             printf("n");
         }
     }
+}
+
+void desenharAtaqueDiurno(Programa *programa)
+{
+    desenhaDadosDiurno(programa);
+    desenhaDadosDiurno(programa);
 }
 
 void alternarArma(Programa *programa) {
@@ -395,7 +415,7 @@ void processarComandoDiurno(Programa *programa, char c)
     }
 }
 
-int gerarTipoAtaque()
+int gerarTipoAtaqueDiurno()
 {
     int r = rand() % 11;
     if (r == 10) return NAVE_GRANDE;
@@ -406,7 +426,7 @@ void nascerAtaqueDiurno(Programa *programa)
 {
     if (programa->partidaAtual.ataquesInativos == 0) return;
 
-    programa->partidaAtual.campoAtaquesDiurnos[12] = gerarTipoAtaque();
+    programa->partidaAtual.campoAtaquesDiurnos[12] = gerarTipoAtaqueDiurno();
     programa->partidaAtual.ataquesInativos--;
 }
 
@@ -442,13 +462,13 @@ void iniciarOndaDiurna(Programa *programa)
 
 void ondaDiurna(Programa *programa)
 {
-    system("clear");
     iniciarOndaDiurna(programa);
 
     crono cronometro;
     crono_inicia(&cronometro);
 
-    while (programa->estado == ESTADO_RODADA_DIURNA && !ondaDiurnaTerminou(programa))
+    system("clear");
+    while (programa->partidaAtual.tipoOndaAtual == ONDA_DIURNA && !ondaDiurnaTerminou(programa))
     {
         desenharAtaqueDiurno(programa);
         printf("\r");
@@ -468,37 +488,71 @@ void ondaDiurna(Programa *programa)
     }
 }
 
+int sorteouDiurna(Programa *programa)
+{
+    int probabilidadeDiurna = 100 - (int)programa->partidaAtual.ondasFinalizadas * 20;
+    if (probabilidadeDiurna < 20) probabilidadeDiurna = 20;
+
+    int sorteio = rand() % 100;
+
+    if (sorteio <= probabilidadeDiurna)
+    {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+void sortearProximaOnda(Programa *programa)
+{
+    if (sorteouDiurna(programa))
+    {
+        programa->partidaAtual.tipoOndaAtual = ONDA_DIURNA;
+        programa->estado = ESTADO_ONDA_DIURNA;
+    }
+    else
+    {
+        programa->partidaAtual.tipoOndaAtual = ONDA_NOTURNA;
+        programa->estado = ESTADO_ONDA_NOTURNA;
+    }
+}
+
 int main()
 {
     Programa programa;
     inicializarPrograma(&programa);
+    srand(time(NULL));
 
-    do
-    {
-        switch (programa.estado)
+    do {
+        switch (programa.estado) 
         {
-        case ESTADO_MENU_PRICIPAL:
-            menuPrincipal(&programa);
-            break;
+            case ESTADO_MENU_PRICIPAL:
+                menuPrincipal(&programa);
+                break;
 
-        case ESTADO_MENU_FIM_PARTIDA:
+            case ESTADO_MENU_FIM_PARTIDA:
 
-            break;
+                break;
 
-        case ESTADO_MENU_MELHORES_POTUACOES:
+            case ESTADO_MENU_MELHORES_POTUACOES:
 
-            break;
+                break;
 
-        case ESTADO_RODADA_DIURNA:
-            ondaDiurna(&programa);
-            break;
+            case ESTADO_ONDA_DIURNA:
+                ondaDiurna(&programa);
+                break;
 
-        case ESTADO_RODADA_NOTURNA:
+            case ESTADO_ONDA_NOTURNA:
 
-            break;
-        default:
-            programa.estado = 0;
-            break;
+                break;
+
+            case ESTADO_ONDA_SORTEAR:
+                sortearProximaOnda(&programa);
+                break;
+
+            default:
+                programa.estado = ESTADO_FIM_PROGRAMA;
+                break;
         }
     } while (programa.estado != ESTADO_FIM_PROGRAMA);
 
