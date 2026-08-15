@@ -68,6 +68,7 @@ typedef struct Programa
 {
     char estado;
     Partida partidaAtual;
+    unsigned int placar[3];
 } Programa;
 
 typedef struct timespec crono;
@@ -146,15 +147,87 @@ double crono_parcial(crono *c)
     return segundos + 1e-9 * nanosegundos;
 }
 
+void lerArquivoPlacar(Programa *programa) {
+    FILE *arquivo = fopen(NOME_ARQUIVO_PLACAR, "r");
+
+    if (arquivo == NULL)
+    {
+        return;
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        if (fscanf(arquivo, "%u", &programa->placar[i]) != 1) break;
+    }
+
+    fclose(arquivo);
+}
+
+void gravarMelhoresPontuacoes(Programa *programa)
+{
+    FILE *arquivo = fopen(NOME_ARQUIVO_PLACAR, "w");
+    if (arquivo == NULL) {
+        return;
+    }
+
+    for (int i = 0; i < 3; i++)
+    {
+        fprintf(arquivo, "%u\n", programa->placar[i]);
+    }
+
+    fclose(arquivo);
+}
+
+void ordenarPlacar(Programa *programa) {
+    for (int passada = 0; passada < 2; passada++)
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            if (programa->placar[i] < programa->placar[i + 1])
+            {
+                unsigned int tmp = programa->placar[i];
+                programa->placar[i] = programa->placar[i + 1];
+                programa->placar[i + 1] = tmp;
+            }
+        }
+    }
+}
+
+void atualizarPlacar(Programa *programa)
+{
+    unsigned int pontuacao = programa->partidaAtual.pontuacao;
+
+    if (pontuacao <= programa->placar[2]) return;
+
+    int i = 2;
+    while (i > 0 && programa->placar[i - 1] < pontuacao)
+    {
+        programa->placar[i] = programa->placar[i - 1];
+        i--;
+    }
+
+    programa->placar[i] = pontuacao;
+}
+
 void inicializarPrograma(Programa *programa)
 {
     configura_terminal();
+
+    programa->placar[0] = 0;
+    programa->placar[1] = 0;
+    programa->placar[2] = 0;
+
+    lerArquivoPlacar(programa);
+
+    ordenarPlacar(programa);
 
     programa->estado = ESTADO_MENU_PRICIPAL;
 }
 
 void finalizarPrograma(Programa *programa)
 {
+    gravarMelhoresPontuacoes(programa);
+
     normaliza_terminal();
 }
 
@@ -362,6 +435,10 @@ void atualizarCampoDiurno(Programa *programa)
         {
             destruirEscudo(programa, indiceEscudo);
         }
+        else
+        {
+            programa->estado = ESTADO_FIM_PARTIDA;
+        }
     }
 
     for (int i = 4; i < 13; i++)
@@ -385,8 +462,8 @@ void processarComandoDiurno(Programa *programa, char c)
         break;
 
     case 27:
-        finalizarPrograma(programa);
-        exit(0);
+        programa->estado = ESTADO_FIM_PARTIDA;
+        break;
 
     default:
         break;
@@ -426,14 +503,6 @@ int ondaDiurnaTerminou(Programa *programa)
     return 1;
 }
 
-int partidaTerminouDiurna(Programa *programa)
-{
-    if (programa->partidaAtual.quantidadeEscudos > 0) return 0;
-    if (programa->partidaAtual.campoAtaquesDiurnos[3] == VAZIO) return 0;
-
-    return 1;
-}
-
 void iniciarOndaDiurna(Programa *programa)
 {
     programa->partidaAtual.municao = 30;
@@ -460,14 +529,9 @@ void ondaDiurna(Programa *programa)
         printf("\r");
         fflush(stdout);
 
-        if (ondaDiurnaTerminou(programa) == 1) {
-            programa->estado = ESTADO_FIM_ONDA;
-            return;
-        }
-
-        if (partidaTerminouDiurna(programa))
+        if (ondaDiurnaTerminou(programa) == 1)
         {
-            programa->estado = ESTADO_FIM_PARTIDA;
+            programa->estado = ESTADO_FIM_ONDA;
             return;
         }
 
@@ -475,12 +539,14 @@ void ondaDiurna(Programa *programa)
         if (c != 0)
         {
             processarComandoDiurno(programa, c);
+            if (programa->estado == ESTADO_FIM_PARTIDA) return;
         }
 
         if (crono_parcial(&cronometro) >= programa->partidaAtual.intervaloMovimento)
         {
             tickOndaDiurna(programa);
             crono_inicia(&cronometro);
+            if (programa->estado == ESTADO_FIM_PARTIDA) return;
         }
     }
 }
@@ -577,6 +643,7 @@ void desenharFimPartida(Programa *programa) {
 
 void fimPartida(Programa *programa)
 {
+    atualizarPlacar(programa);
     desenharFimPartida(programa);
 
     for (;;)
@@ -602,6 +669,40 @@ void fimPartida(Programa *programa)
     }
 }
 
+void desenharMelhoresPontuacoes(Programa *programa) {
+    system("clear");
+    printf("Placar de melhores pontuações\n");
+
+    for (int i = 0; i < 3; i++)
+    {
+        printf("%dº - %d pontos\n", i + 1, programa->placar[i]);
+    }
+    
+    printf("[J] - jogar nova partida\n");
+    printf("[ESC] - sair do jogo\n");
+}
+
+void melhoresPontuacoes(Programa *programa)
+{
+    desenharMelhoresPontuacoes(programa);
+
+    for (;;)
+    {
+        char c = lechar();
+        if (c == 0) continue;
+
+        if (c == 27)
+        {
+            finalizarPrograma(programa);
+            exit(0);
+        }
+        else if (c == 'j' || c == 'J')
+        {
+            iniciarNovaPartida(programa);
+            return;
+        }
+    }
+}
 
 int main()
 {
@@ -617,7 +718,7 @@ int main()
                 break;
 
             case ESTADO_MENU_MELHORES_POTUACOES:
-
+                melhoresPontuacoes(&programa);
                 break;
 
             case ESTADO_FIM_ONDA:
