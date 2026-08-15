@@ -7,11 +7,12 @@
 // estados do programa
 
 #define ESTADO_MENU_PRICIPAL 0
-#define ESTADO_MENU_FIM_PARTIDA 1
-#define ESTADO_MENU_MELHORES_POTUACOES 2
-#define ESTADO_ONDA_DIURNA 3
-#define ESTADO_ONDA_NOTURNA 4
-#define ESTADO_ONDA_SORTEAR 5
+#define ESTADO_MENU_MELHORES_POTUACOES 1
+#define ESTADO_FIM_ONDA 2
+#define ESTADO_FIM_PARTIDA 3
+#define ESTADO_ONDA_DIURNA 4
+#define ESTADO_ONDA_NOTURNA 5
+#define ESTADO_ONDA_SORTEAR 6
 #define ESTADO_FIM_PROGRAMA -1
 
 // tipo de ondas
@@ -36,6 +37,10 @@
 #define RESULTADO_DESTRUIU 1
 #define RESULTADO_CONVERTEU 2
 
+// arquivo
+
+#define NOME_ARQUIVO_PLACAR "placar.txt"
+
 // estruturas
 
 // estrutura principal do jogo
@@ -44,8 +49,10 @@ typedef struct Partida
 {
     unsigned char armaAtual;
     unsigned char quantidadeEscudos;
-    unsigned char municao;
-    unsigned char ataquesInativos;
+    unsigned int municao;
+    unsigned int tirosAcertados;
+    unsigned int tirosErrados;
+    unsigned int ataquesInativos;
     unsigned char tipoOndaAtual;
 
     double intervaloMovimento;
@@ -151,23 +158,19 @@ void finalizarPrograma(Programa *programa)
     normaliza_terminal();
 }
 
+
+
 void desenharMenuPrincipal()
 {
     system("clear");
     printf("Bem-vindo ao Invasores do Espaço!\n");
-    printf("1 - Jogar nova partida\n");
-    printf("2 - Placar das melhores pontuações\n");
-    printf("3 - Sair do Invasozer do Espaço\n");
-
-    printf("Sua escolha: ");
+    printf("[J] - Jogar nova partida\n");
+    printf("[P] - Placar das melhores pontuações\n");
+    printf("[ESC] - Sair do Invasores do Espaço\n");
 }
 
 void menuPrincipal(Programa *programa)
 {
-    char areaTecla[2];
-    int tamanhoAreaTecla = 0;
-    areaTecla[0] = '\0';
-
     desenharMenuPrincipal();
 
     for (;;)
@@ -175,44 +178,21 @@ void menuPrincipal(Programa *programa)
         char c = lechar();
         if (c == 0) continue;
 
-        if (c == '\r' || c == '\n')
+        if (c == 27)
         {
-            break;
+            finalizarPrograma(programa);
+            exit(0);
         }
-        else if (c == 127 || c == 8)
+        else if (c == 'j' || c == 'J')
         {
-            if (tamanhoAreaTecla > 0)
-            {
-                tamanhoAreaTecla--;
-                areaTecla[tamanhoAreaTecla] = '\0';
-                printf("\b \b");
-            }
+            iniciarNovaPartida(programa);
+            return;
         }
-        else if (tamanhoAreaTecla < 1)
+        else if (c == 'p' || c == 'P')
         {
-            areaTecla[tamanhoAreaTecla] = c;
-            tamanhoAreaTecla++;
-            areaTecla[tamanhoAreaTecla] = '\0';
-            putchar(c);
+            programa->estado = ESTADO_MENU_MELHORES_POTUACOES;
+            return;
         }
-    }
-
-    int escolha = atoi(areaTecla);
-
-    switch (escolha)
-    {
-    case 1:
-        iniciarNovaPartida(programa);
-        break;
-    case 2:
-        programa->estado = ESTADO_MENU_MELHORES_POTUACOES;
-        break;
-    case 3:
-        programa->estado = ESTADO_FIM_PROGRAMA;
-        break;
-    default:
-        programa->estado = ESTADO_MENU_PRICIPAL;
-        break;
     }
 }
 
@@ -234,10 +214,7 @@ void iniciarNovaPartida(Programa *programa)
 {
     programa->partidaAtual.armaAtual = 0;
     programa->partidaAtual.pontuacao = 0;
-    programa->partidaAtual.municao = 30;
-    programa->partidaAtual.quantidadeEscudos = 3;
     programa->partidaAtual.ondasFinalizadas = 0;
-    inicializarCampoAtaqueDiurno(programa);
 
     programa->estado = ESTADO_ONDA_SORTEAR;
 }
@@ -286,7 +263,8 @@ void desenhaCampoDiurno(Programa *programa) {
 void desenharAtaqueDiurno(Programa *programa)
 {
     desenhaDadosDiurno(programa);
-    desenhaDadosDiurno(programa);
+    desenhaCampoDiurno(programa);
+    printf("\033[K"); // serve para resolver um bug que caracteres comecavam a sumir
 }
 
 void alternarArma(Programa *programa) {
@@ -332,14 +310,18 @@ void derrotarInimigoDiurno(Programa *programa) {
 
         if (resultado == RESULTADO_CONVERTEU)
         {
+            programa->partidaAtual.tirosAcertados++;
             programa->partidaAtual.campoAtaquesDiurnos[i] = NAVE_PEQUENA;
-            break;
+            return;
         } else if (resultado == RESULTADO_DESTRUIU)
         {
+            programa->partidaAtual.tirosAcertados++;
             programa->partidaAtual.campoAtaquesDiurnos[i] = VAZIO;
-            break;
+            return;
         }
     }
+
+    programa->partidaAtual.tirosErrados++;
 }
 
 void atirar(Programa *programa) {
@@ -379,10 +361,6 @@ void atualizarCampoDiurno(Programa *programa)
         if (indiceEscudo != -1)
         {
             destruirEscudo(programa, indiceEscudo);
-        }
-        else
-        {
-            programa->estado = ESTADO_MENU_FIM_PARTIDA;
         }
     }
 
@@ -448,16 +426,24 @@ int ondaDiurnaTerminou(Programa *programa)
     return 1;
 }
 
+int partidaTerminouDiurna(Programa *programa)
+{
+    if (programa->partidaAtual.quantidadeEscudos > 0) return 0;
+    if (programa->partidaAtual.campoAtaquesDiurnos[3] == VAZIO) return 0;
+
+    return 1;
+}
+
 void iniciarOndaDiurna(Programa *programa)
 {
     programa->partidaAtual.municao = 30;
+    programa->partidaAtual.quantidadeEscudos = 3;
+    programa->partidaAtual.tirosAcertados = 0;
+    programa->partidaAtual.tirosErrados = 0;
     programa->partidaAtual.ataquesInativos = 20;
     programa->partidaAtual.intervaloMovimento = 2.0;
 
-    for (int i = 3; i < 13; i++)
-    {
-        programa->partidaAtual.campoAtaquesDiurnos[i] = VAZIO;
-    }
+    inicializarCampoAtaqueDiurno(programa);
 }
 
 void ondaDiurna(Programa *programa)
@@ -468,11 +454,22 @@ void ondaDiurna(Programa *programa)
     crono_inicia(&cronometro);
 
     system("clear");
-    while (programa->partidaAtual.tipoOndaAtual == ONDA_DIURNA && !ondaDiurnaTerminou(programa))
+    while (1)
     {
         desenharAtaqueDiurno(programa);
         printf("\r");
         fflush(stdout);
+
+        if (ondaDiurnaTerminou(programa) == 1) {
+            programa->estado = ESTADO_FIM_ONDA;
+            return;
+        }
+
+        if (partidaTerminouDiurna(programa))
+        {
+            programa->estado = ESTADO_FIM_PARTIDA;
+            return;
+        }
 
         char c = lechar();
         if (c != 0)
@@ -517,6 +514,95 @@ void sortearProximaOnda(Programa *programa)
     }
 }
 
+void desenharFimOnda(Programa *programa) {
+    system("clear");
+    printf("Você terminou a onda e sobreviveu! Parabéns!\n");
+    printf("Tipo de onda jogada: ");
+    if (programa->partidaAtual.tipoOndaAtual == ONDA_DIURNA)
+    {
+        printf("diurna\n");
+    } else if (programa->partidaAtual.tipoOndaAtual == ONDA_NOTURNA) {
+        printf("noturna\n");
+    }
+    printf("Pontuação: %d\n", programa->partidaAtual.pontuacao);
+    printf("Tiros restantes: %d\n", programa->partidaAtual.municao);
+    printf("Tiros acertados: %d\n", programa->partidaAtual.tirosAcertados);
+    printf("Tiros errados: %d\n", programa->partidaAtual.tirosErrados);
+    printf("Escudos restantes: %d\n", programa->partidaAtual.quantidadeEscudos);
+
+    printf("[C] - continuar para a próxima onda\n");
+    printf("[R] - reiniciar a partida do zero\n");
+    printf("[ESC] - sair do jogo\n");
+}
+
+void fimOnda(Programa *programa)
+{
+    desenharFimOnda(programa);
+
+    for (;;)
+    {
+        char c = lechar();
+        if (c == 0) continue;
+
+        if (c == 27)
+        {
+            finalizarPrograma(programa);
+            exit(0);
+        }
+        else if (c == 'c' || c == 'C')
+        {
+            programa->partidaAtual.ondasFinalizadas++;
+            programa->estado = ESTADO_ONDA_SORTEAR;
+            return;
+        }
+        else if (c == 'r' || c == 'R')
+        {
+            iniciarNovaPartida(programa);
+            return;
+        }
+    }
+}
+
+
+void desenharFimPartida(Programa *programa) {
+    system("clear");
+    printf("Fim de jogo! Você foi derrotado.\n");
+    printf("Pontuação final: %d\n", programa->partidaAtual.pontuacao);
+    printf("Ondas concluídas: %d\n", programa->partidaAtual.ondasFinalizadas);
+
+    printf("[R] - reiniciar a partida do zero\n");
+    printf("[P] - ver placar das melhores pontuações\n");
+    printf("[ESC] - sair do jogo\n");
+}
+
+void fimPartida(Programa *programa)
+{
+    desenharFimPartida(programa);
+
+    for (;;)
+    {
+        char c = lechar();
+        if (c == 0) continue;
+
+        if (c == 27)
+        {
+            finalizarPrograma(programa);
+            exit(0);
+        }
+        else if (c == 'r' || c == 'R')
+        {
+            iniciarNovaPartida(programa);
+            return;
+        }
+        else if (c == 'p' || c == 'P')
+        {
+            programa->estado = ESTADO_MENU_MELHORES_POTUACOES;
+            return;
+        }
+    }
+}
+
+
 int main()
 {
     Programa programa;
@@ -530,12 +616,16 @@ int main()
                 menuPrincipal(&programa);
                 break;
 
-            case ESTADO_MENU_FIM_PARTIDA:
+            case ESTADO_MENU_MELHORES_POTUACOES:
 
                 break;
 
-            case ESTADO_MENU_MELHORES_POTUACOES:
+            case ESTADO_FIM_ONDA:
+                fimOnda(&programa);
+                break;
 
+            case ESTADO_FIM_PARTIDA:
+                fimPartida(&programa);
                 break;
 
             case ESTADO_ONDA_DIURNA:
