@@ -113,6 +113,7 @@ void lerArquivoPlacar(Programa *programa);
 void gravarMelhoresPontuacoes(Programa *programa);
 void ordenarPlacar(Programa *programa);
 void atualizarPlacar(Programa *programa);
+int pontuacaoEntrouTop3(Programa *programa);
 
 // funções gerais do programa
 
@@ -153,6 +154,7 @@ void desenhaCampoDiurno(Programa *programa);
 void desenharAtaqueDiurno(Programa *programa);
 void alternarArmaDiurno(Programa *programa);
 int armaCorrespondeInimigo(Programa *programa, int i);
+void pontuarInimigoDerrotadoDiurno(Programa *programa, int i, unsigned char tipo);
 int derrotarInimigoDiurno(Programa *programa);
 void atirar(Programa *programa);
 int indexEscudoParaDestruir(Programa *programa);
@@ -163,6 +165,7 @@ int gerarTipoAtaqueDiurno();
 void nascerAtaqueDiurno(Programa *programa);
 void tickOndaDiurna(Programa *programa);
 int ondaDiurnaTerminou(Programa *programa);
+void pontuarFimOndaDiurna(Programa *programa);
 void iniciarOndaDiurna(Programa *programa);
 void ondaDiurna(Programa *programa);
 
@@ -172,6 +175,7 @@ void inicializarCampoAtaqueNoturno(Programa *programa);
 void desenharAtaqueNoturno(Programa *programa);
 void alternarArmaNoturna(Programa *programa);
 int armaCorrespondeInimigoNoturno(Programa *programa, int i);
+void pontuarInimigoDerrotadoNoturno(Programa *programa, int i, unsigned char tipo);
 int derrotarInimigoNoturno(Programa *programa);
 void atirarNoturno(Programa *programa);
 int indexEscudoParaDestruirNoturno(Programa *programa);
@@ -182,6 +186,7 @@ int gerarTipoAtaqueNoturno();
 void nascerAtaqueNoturno(Programa *programa);
 void tickOndaNoturna(Programa *programa);
 int ondaNoturnaTerminou(Programa *programa);
+void pontuarFimOndaNoturna(Programa *programa);
 void iniciarOndaNoturna(Programa *programa);
 void ondaNoturna(Programa *programa);
 
@@ -302,6 +307,18 @@ void atualizarPlacar(Programa *programa)
     }
 
     programa->placar[i] = pontuacao;
+}
+
+int pontuacaoEntrouTop3(Programa *programa)
+{
+    unsigned int pontuacao = programa->partidaAtual.pontuacao;
+
+    for (int i = 0; i < 3; i++)
+    {
+        if (programa->placar[i] == pontuacao) return 1;
+    }
+
+    return 0;
 }
 
 // funções gerais do programa
@@ -503,6 +520,11 @@ void desenharFimPartida(Programa *programa) {
     printf("Pontuação final: %d\n", programa->partidaAtual.pontuacao);
     printf("Ondas concluídas: %d\n", programa->partidaAtual.ondasFinalizadas);
 
+    if (pontuacaoEntrouTop3(programa))
+    {
+        printf("Novo recorde! Sua pontuação entrou no top 3!\n");
+    }
+
     printf("[R] - reiniciar a partida do zero\n");
     printf("[P] - ver placar das melhores pontuações\n");
     printf("[ESC] - sair do jogo\n");
@@ -635,6 +657,20 @@ int armaCorrespondeInimigo(Programa *programa, int i)
     return RESULTADO_ERROU;
 }
 
+void pontuarInimigoDerrotadoDiurno(Programa *programa, int i, unsigned char tipo) {
+    int pontuacao = 0;
+    
+    if (tipo >= 0 && tipo <= 9)
+    {
+        pontuacao = 13 - i;
+    } else if (tipo == NAVE_PEQUENA) 
+    {
+        pontuacao = (13 - i) * 2;
+    }
+    
+    programa->partidaAtual.pontuacao += pontuacao;
+}
+
 int derrotarInimigoDiurno(Programa *programa) {
     for (int i = 0; i < 13; i++)
     {
@@ -645,6 +681,7 @@ int derrotarInimigoDiurno(Programa *programa) {
         }
 
         int resultado = armaCorrespondeInimigo(programa, i);
+        unsigned char tipo = programa->partidaAtual.campoAtaquesDiurnos[i];
 
         if (resultado == RESULTADO_CONVERTEU)
         {
@@ -655,6 +692,7 @@ int derrotarInimigoDiurno(Programa *programa) {
         {
             programa->partidaAtual.tirosAcertados++;
             programa->partidaAtual.campoAtaquesDiurnos[i] = VAZIO;
+            pontuarInimigoDerrotadoDiurno(programa, i, tipo);
             return resultado;
         }
     }
@@ -789,8 +827,19 @@ int ondaDiurnaTerminou(Programa *programa)
     return 1;
 }
 
+void pontuarFimOndaDiurna(Programa *programa) 
+{
+    unsigned int pontuacao = programa->partidaAtual.pontuacao;
+
+    pontuacao += programa->partidaAtual.municao * 2;
+    pontuacao += programa->partidaAtual.quantidadeEscudos * 10;
+
+    programa->partidaAtual.pontuacao = pontuacao;
+}
+
 void iniciarOndaDiurna(Programa *programa)
 {
+    programa->partidaAtual.armaAtual = 0;
     programa->partidaAtual.municao = 30;
     programa->partidaAtual.quantidadeEscudos = 3;
     programa->partidaAtual.tirosAcertados = 0;
@@ -819,6 +868,7 @@ void ondaDiurna(Programa *programa)
         if (ondaDiurnaTerminou(programa) == 1)
         {
             programa->estado = ESTADO_FIM_ONDA;
+            pontuarFimOndaDiurna(programa);
             return;
         }
 
@@ -899,6 +949,20 @@ int armaCorrespondeInimigoNoturno(Programa *programa, int i)
     return RESULTADO_ERROU;
 }
 
+void pontuarInimigoDerrotadoNoturno(Programa *programa, int i, unsigned char tipo) {
+    int pontuacao = 0;
+    
+    if (tipo >= 0 && tipo <= 8)
+    {
+        pontuacao = (8 - i) * 2;
+    } else if (tipo == NAVE_PEQUENA) 
+    {
+        pontuacao = (8 - i) * 4;
+    }
+    
+    programa->partidaAtual.pontuacao += pontuacao;
+}
+
 int derrotarInimigoNoturno(Programa *programa) {
     for (int i = 0; i < 8; i++)
     {
@@ -909,6 +973,7 @@ int derrotarInimigoNoturno(Programa *programa) {
         }
 
         int resultado = armaCorrespondeInimigoNoturno(programa, i);
+        unsigned char tipo = programa->partidaAtual.campoAtaquesDiurnos[i];
 
         if (resultado == RESULTADO_CONVERTEU)
         {
@@ -919,6 +984,7 @@ int derrotarInimigoNoturno(Programa *programa) {
         {
             programa->partidaAtual.tirosAcertados++;
             programa->partidaAtual.campoAtaquesNoturnos[i] = VAZIO;
+            pontuarInimigoDerrotadoNoturno(programa, i, tipo);
             return resultado;
         }
     }
@@ -1058,9 +1124,20 @@ int ondaNoturnaTerminou(Programa *programa)
     return 1;
 }
 
+void pontuarFimOndaNoturna(Programa *programa)
+{
+    unsigned int pontuacao = programa->partidaAtual.pontuacao;
+
+    pontuacao += programa->partidaAtual.municao * 4;
+    pontuacao += programa->partidaAtual.quantidadeEscudos * 20;
+
+    programa->partidaAtual.pontuacao = pontuacao;
+}
+
 void iniciarOndaNoturna(Programa *programa)
 {
     programa->partidaAtual.municao = 30;
+    programa->partidaAtual.armaAtual = 0;
     programa->partidaAtual.quantidadeEscudos = 3;
     programa->partidaAtual.tirosAcertados = 0;
     programa->partidaAtual.tirosErrados = 0;
@@ -1088,6 +1165,7 @@ void ondaNoturna(Programa *programa)
         if (ondaNoturnaTerminou(programa) == 1)
         {
             programa->estado = ESTADO_FIM_ONDA;
+            pontuarFimOndaNoturna(programa);
             return;
         }
 
