@@ -1,8 +1,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 
 // defines
+
+// este define escolhe entre afplay e aplay dependendo do SO em que
+// o programa for compilado, usando a macro __APPLE__ (definida
+// automaticamente pelo compilador so no macOS)
+// afplay eh o programa nativo do macOS para tocar arquivos de audio
+// aplay eh o programa usado para tocar audio no Linux (parte do
+// alsa-utils, geralmente ja vem instalado por padrao)
+// fiz isso pois programei o trabalho no macOS e quis ja adaptar para o Linux
+
+#ifdef __APPLE__
+    #define TOCAR_SOM "afplay"
+#else
+    #define TOCAR_SOM "aplay -q"
+#endif
+
+#define PASTA_SONS "sons/"
+
+// sons
+
+#define SOM_INIMIGO_NAVE "11.3.wav"
+#define SOM_ESCUDO "12.3.wav"
+#define SOM_VAZIO "x.3.wav"
 
 // estados do programa
 
@@ -73,22 +96,63 @@ typedef struct Programa
 
 typedef struct timespec crono;
 
-// protopipos
+// protótipos
+
+// funções de terminal e temporização
 
 void configura_terminal();
 void normaliza_terminal();
 char lechar();
 void crono_inicia(crono *c);
 double crono_parcial(crono *c);
+
+// funções do placar
+
+void lerArquivoPlacar(Programa *programa);
+void gravarMelhoresPontuacoes(Programa *programa);
+void ordenarPlacar(Programa *programa);
+void atualizarPlacar(Programa *programa);
+
+// funções gerais do programa
+
 void inicializarPrograma(Programa *programa);
 void finalizarPrograma(Programa *programa);
+
+// funções do menu principal
+
 void desenharMenuPrincipal();
 void menuPrincipal(Programa *programa);
+
+// funções do placar de melhores pontuações
+
+void desenharMelhoresPontuacoes(Programa *programa);
+void melhoresPontuacoes(Programa *programa);
+
+// funções gerais da partida
+
 void iniciarNovaPartida(Programa *programa);
+int sorteouDiurna(Programa *programa);
+void sortearProximaOnda(Programa *programa);
+
+// funções de fim de onda
+
+void desenharFimOnda(Programa *programa);
+void fimOnda(Programa *programa);
+
+// funções de fim de partida
+
+void desenharFimPartida(Programa *programa);
+void fimPartida(Programa *programa);
+
+// funções da onda diurna
+
+void inicializarCampoAtaqueDiurno(Programa *programa);
+void desenhaDadosDiurno(Programa *programa);
+void desenhaCampoDiurno(Programa *programa);
 void desenharAtaqueDiurno(Programa *programa);
-void alternarArma(Programa *programa);
+void alternarArmaDiurno(Programa *programa);
 int armaCorrespondeInimigo(Programa *programa, int i);
-void derrotarInimigoDiurno(Programa *programa);
+int derrotarInimigoDiurno(Programa *programa);
 void atirar(Programa *programa);
 int indexEscudoParaDestruir(Programa *programa);
 void destruirEscudo(Programa *programa, int i);
@@ -101,7 +165,35 @@ int ondaDiurnaTerminou(Programa *programa);
 void iniciarOndaDiurna(Programa *programa);
 void ondaDiurna(Programa *programa);
 
-// funcoes
+// funções da onda noturna
+
+void inicializarCampoAtaqueNoturno(Programa *programa);
+void desenharAtaqueNoturno(Programa *programa);
+void alternarArmaNoturna(Programa *programa);
+int armaCorrespondeInimigoNoturno(Programa *programa, int i);
+int derrotarInimigoNoturno(Programa *programa);
+void atirarNoturno(Programa *programa);
+int indexEscudoParaDestruirNoturno(Programa *programa);
+void destruirEscudoNoturno(Programa *programa, int i);
+void atualizarCampoNoturno(Programa *programa);
+void processarComandoNoturno(Programa *programa, char c);
+int gerarTipoAtaqueNoturno();
+void nascerAtaqueNoturno(Programa *programa);
+void tickOndaNoturna(Programa *programa);
+int ondaNoturnaTerminou(Programa *programa);
+void iniciarOndaNoturna(Programa *programa);
+void ondaNoturna(Programa *programa);
+
+// funções do som
+
+void tocaSom(char *arquivo);
+void nomeArquivoSomTipo(int tipo, char *destino);
+void sonarDiurno(Programa *programa);
+void sonarNoturno(Programa *Programa);
+
+// funções
+
+// funções de terminal e temporização
 
 void configura_terminal()
 {
@@ -146,6 +238,8 @@ double crono_parcial(crono *c)
     double nanosegundos = agora.tv_nsec - c->tv_nsec;
     return segundos + 1e-9 * nanosegundos;
 }
+
+// funções do placar
 
 void lerArquivoPlacar(Programa *programa) {
     FILE *arquivo = fopen(NOME_ARQUIVO_PLACAR, "r");
@@ -209,6 +303,8 @@ void atualizarPlacar(Programa *programa)
     programa->placar[i] = pontuacao;
 }
 
+// funções gerais do programa
+
 void inicializarPrograma(Programa *programa)
 {
     configura_terminal();
@@ -231,7 +327,7 @@ void finalizarPrograma(Programa *programa)
     normaliza_terminal();
 }
 
-
+// funções do menu principal
 
 void desenharMenuPrincipal()
 {
@@ -269,6 +365,179 @@ void menuPrincipal(Programa *programa)
     }
 }
 
+// funções do placar de melhores pontuações
+
+void desenharMelhoresPontuacoes(Programa *programa) {
+    system("clear");
+    printf("Placar de melhores pontuações\n");
+
+    for (int i = 0; i < 3; i++)
+    {
+        printf("%dº - %d pontos\n", i + 1, programa->placar[i]);
+    }
+    
+    printf("[J] - jogar nova partida\n");
+    printf("[ESC] - sair do jogo\n");
+}
+
+void melhoresPontuacoes(Programa *programa)
+{
+    desenharMelhoresPontuacoes(programa);
+
+    for (;;)
+    {
+        char c = lechar();
+        if (c == 0) continue;
+
+        if (c == 27)
+        {
+            finalizarPrograma(programa);
+            exit(0);
+        }
+        else if (c == 'j' || c == 'J')
+        {
+            iniciarNovaPartida(programa);
+            return;
+        }
+    }
+}
+
+// funções gerais da partida
+
+void iniciarNovaPartida(Programa *programa)
+{
+    programa->partidaAtual.armaAtual = 0;
+    programa->partidaAtual.pontuacao = 0;
+    programa->partidaAtual.ondasFinalizadas = 0;
+
+    programa->estado = ESTADO_ONDA_SORTEAR;
+}
+
+int sorteouDiurna(Programa *programa)
+{
+    int probabilidadeDiurna = 100 - (int)programa->partidaAtual.ondasFinalizadas * 20;
+    if (probabilidadeDiurna < 20) probabilidadeDiurna = 20;
+
+    int sorteio = rand() % 100;
+
+    if (sorteio <= probabilidadeDiurna)
+    {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+void sortearProximaOnda(Programa *programa)
+{
+    if (sorteouDiurna(programa))
+    {
+        programa->partidaAtual.tipoOndaAtual = ONDA_DIURNA;
+        programa->estado = ESTADO_ONDA_DIURNA;
+    }
+    else
+    {
+        programa->partidaAtual.tipoOndaAtual = ONDA_NOTURNA;
+        programa->estado = ESTADO_ONDA_NOTURNA;
+    }
+}
+
+// funções de fim de onda
+
+void desenharFimOnda(Programa *programa) {
+    system("clear");
+    printf("Você terminou a onda e sobreviveu! Parabéns!\n");
+    printf("Tipo de onda jogada: ");
+    if (programa->partidaAtual.tipoOndaAtual == ONDA_DIURNA)
+    {
+        printf("diurna\n");
+    } else if (programa->partidaAtual.tipoOndaAtual == ONDA_NOTURNA) {
+        printf("noturna\n");
+    }
+    printf("Pontuação: %d\n", programa->partidaAtual.pontuacao);
+    printf("Tiros restantes: %d\n", programa->partidaAtual.municao);
+    printf("Tiros acertados: %d\n", programa->partidaAtual.tirosAcertados);
+    printf("Tiros errados: %d\n", programa->partidaAtual.tirosErrados);
+    printf("Escudos restantes: %d\n", programa->partidaAtual.quantidadeEscudos);
+
+    printf("[C] - continuar para a próxima onda\n");
+    printf("[R] - reiniciar a partida do zero\n");
+    printf("[ESC] - sair do jogo\n");
+}
+
+void fimOnda(Programa *programa)
+{
+    tocaSom(SOM_ESCUDO);
+    desenharFimOnda(programa);
+
+    for (;;)
+    {
+        char c = lechar();
+        if (c == 0) continue;
+
+        if (c == 27)
+        {
+            finalizarPrograma(programa);
+            exit(0);
+        }
+        else if (c == 'c' || c == 'C')
+        {
+            programa->partidaAtual.ondasFinalizadas++;
+            programa->estado = ESTADO_ONDA_SORTEAR;
+            return;
+        }
+        else if (c == 'r' || c == 'R')
+        {
+            iniciarNovaPartida(programa);
+            return;
+        }
+    }
+}
+
+// funções de fim de partida
+
+void desenharFimPartida(Programa *programa) {
+    system("clear");
+    printf("Fim de jogo! Você foi derrotado.\n");
+    printf("Pontuação final: %d\n", programa->partidaAtual.pontuacao);
+    printf("Ondas concluídas: %d\n", programa->partidaAtual.ondasFinalizadas);
+
+    printf("[R] - reiniciar a partida do zero\n");
+    printf("[P] - ver placar das melhores pontuações\n");
+    printf("[ESC] - sair do jogo\n");
+}
+
+void fimPartida(Programa *programa)
+{
+    atualizarPlacar(programa);
+    tocaSom(SOM_INIMIGO_NAVE);
+    desenharFimPartida(programa);
+
+    for (;;)
+    {
+        char c = lechar();
+        if (c == 0) continue;
+
+        if (c == 27)
+        {
+            finalizarPrograma(programa);
+            exit(0);
+        }
+        else if (c == 'r' || c == 'R')
+        {
+            iniciarNovaPartida(programa);
+            return;
+        }
+        else if (c == 'p' || c == 'P')
+        {
+            programa->estado = ESTADO_MENU_MELHORES_POTUACOES;
+            return;
+        }
+    }
+}
+
+// funções da onda diurna
+
 void inicializarCampoAtaqueDiurno(Programa *programa) {
     for (int i = 0; i < 13; i++)
     {
@@ -281,15 +550,6 @@ void inicializarCampoAtaqueDiurno(Programa *programa) {
             programa->partidaAtual.campoAtaquesDiurnos[i] = VAZIO;
         }
     }
-}
-
-void iniciarNovaPartida(Programa *programa)
-{
-    programa->partidaAtual.armaAtual = 0;
-    programa->partidaAtual.pontuacao = 0;
-    programa->partidaAtual.ondasFinalizadas = 0;
-
-    programa->estado = ESTADO_ONDA_SORTEAR;
 }
 
 void desenhaDadosDiurno(Programa *programa) {
@@ -340,13 +600,17 @@ void desenharAtaqueDiurno(Programa *programa)
     printf("\033[K"); // serve para resolver um bug que caracteres comecavam a sumir
 }
 
-void alternarArma(Programa *programa) {
+void alternarArmaDiurno(Programa *programa) {
     if (programa->partidaAtual.armaAtual < ARMA_N)
     {
         programa->partidaAtual.armaAtual++;
     } else {
         programa->partidaAtual.armaAtual = 0;
     }
+
+    char arquivo[20];
+    nomeArquivoSomTipo(programa->partidaAtual.armaAtual, arquivo);
+    tocaSom(arquivo);
 }
 
 int armaCorrespondeInimigo(Programa *programa, int i)
@@ -370,7 +634,7 @@ int armaCorrespondeInimigo(Programa *programa, int i)
     return RESULTADO_ERROU;
 }
 
-void derrotarInimigoDiurno(Programa *programa) {
+int derrotarInimigoDiurno(Programa *programa) {
     for (int i = 0; i < 13; i++)
     {
         if (programa->partidaAtual.campoAtaquesDiurnos[i] == ESCUDO ||
@@ -378,23 +642,24 @@ void derrotarInimigoDiurno(Programa *programa) {
         {
             continue;
         }
-        
+
         int resultado = armaCorrespondeInimigo(programa, i);
 
         if (resultado == RESULTADO_CONVERTEU)
         {
             programa->partidaAtual.tirosAcertados++;
             programa->partidaAtual.campoAtaquesDiurnos[i] = NAVE_PEQUENA;
-            return;
+            return resultado;
         } else if (resultado == RESULTADO_DESTRUIU)
         {
             programa->partidaAtual.tirosAcertados++;
             programa->partidaAtual.campoAtaquesDiurnos[i] = VAZIO;
-            return;
+            return resultado;
         }
     }
 
     programa->partidaAtual.tirosErrados++;
+    return RESULTADO_ERROU;
 }
 
 void atirar(Programa *programa) {
@@ -402,7 +667,18 @@ void atirar(Programa *programa) {
 
     programa->partidaAtual.municao--;
 
-    derrotarInimigoDiurno(programa);
+    int resultado = derrotarInimigoDiurno(programa);
+
+    if (resultado == RESULTADO_ERROU)
+    {
+        tocaSom(SOM_VAZIO);
+    }
+    else
+    {
+        char arquivo[20];
+        nomeArquivoSomTipo(programa->partidaAtual.armaAtual, arquivo);
+        tocaSom(arquivo);
+    }
 }
 
 int indexEscudoParaDestruir(Programa *programa)
@@ -454,7 +730,7 @@ void processarComandoDiurno(Programa *programa, char c)
     switch (c)
     {
     case 9:
-        alternarArma(programa);
+        alternarArmaDiurno(programa);
         break;
 
     case 13:
@@ -463,6 +739,10 @@ void processarComandoDiurno(Programa *programa, char c)
 
     case 27:
         programa->estado = ESTADO_FIM_PARTIDA;
+        break;
+
+    case 32:
+        sonarDiurno(programa);
         break;
 
     default:
@@ -481,8 +761,13 @@ void nascerAtaqueDiurno(Programa *programa)
 {
     if (programa->partidaAtual.ataquesInativos == 0) return;
 
-    programa->partidaAtual.campoAtaquesDiurnos[12] = gerarTipoAtaqueDiurno();
+    int tipo = gerarTipoAtaqueDiurno();
+    programa->partidaAtual.campoAtaquesDiurnos[12] = tipo;
     programa->partidaAtual.ataquesInativos--;
+
+    char arquivo[20];
+    nomeArquivoSomTipo(tipo, arquivo);
+    tocaSom(arquivo);
 }
 
 void tickOndaDiurna(Programa *programa)
@@ -551,158 +836,355 @@ void ondaDiurna(Programa *programa)
     }
 }
 
-int sorteouDiurna(Programa *programa)
-{
-    int probabilidadeDiurna = 100 - (int)programa->partidaAtual.ondasFinalizadas * 20;
-    if (probabilidadeDiurna < 20) probabilidadeDiurna = 20;
+// funções da onda noturna
 
-    int sorteio = rand() % 100;
-
-    if (sorteio <= probabilidadeDiurna)
+void inicializarCampoAtaqueNoturno(Programa *programa) {
+    for (int i = 0; i < 8; i++)
     {
-        return 1;
-    } else {
-        return 0;
+        if (i < 3)
+        {
+            programa->partidaAtual.campoAtaquesNoturnos[i] = ESCUDO;
+        }
+        else if (i > 2 && i < 8)
+        {
+            programa->partidaAtual.campoAtaquesNoturnos[i] = VAZIO;
+        }
     }
 }
 
-void sortearProximaOnda(Programa *programa)
+void desenharAtaqueNoturno(Programa *programa)
 {
-    if (sorteouDiurna(programa))
+    printf("%d", programa->partidaAtual.pontuacao);
+    printf("\033[K"); // serve para resolver um bug que caracteres comecavam a sumir
+}
+
+void alternarArmaNoturna(Programa *programa) {
+    unsigned char atual = programa->partidaAtual.armaAtual;
+
+    if (atual == ARMA_N)
     {
-        programa->partidaAtual.tipoOndaAtual = ONDA_DIURNA;
-        programa->estado = ESTADO_ONDA_DIURNA;
+        programa->partidaAtual.armaAtual = 0;
+    } else if (atual >= 8)
+    {
+        programa->partidaAtual.armaAtual = ARMA_N;
+    } else {
+        programa->partidaAtual.armaAtual = atual + 2;
+    }
+
+    char arquivo[20];
+    nomeArquivoSomTipo(programa->partidaAtual.armaAtual, arquivo);
+    tocaSom(arquivo);
+}
+
+int armaCorrespondeInimigoNoturno(Programa *programa, int i)
+{
+    int arma = programa->partidaAtual.armaAtual;
+    int inimigo = programa->partidaAtual.campoAtaquesNoturnos[i];
+
+    if (arma == ARMA_N && inimigo == NAVE_GRANDE)
+    {
+        return RESULTADO_CONVERTEU;
+    }
+    if (arma == ARMA_N && inimigo == NAVE_PEQUENA)
+    {
+        return RESULTADO_DESTRUIU;
+    }
+    if (arma == inimigo)
+    {
+        return RESULTADO_DESTRUIU;
+    }
+
+    return RESULTADO_ERROU;
+}
+
+int derrotarInimigoNoturno(Programa *programa) {
+    for (int i = 0; i < 8; i++)
+    {
+        if (programa->partidaAtual.campoAtaquesNoturnos[i] == ESCUDO ||
+            programa->partidaAtual.campoAtaquesNoturnos[i] == VAZIO)
+        {
+            continue;
+        }
+
+        int resultado = armaCorrespondeInimigoNoturno(programa, i);
+
+        if (resultado == RESULTADO_CONVERTEU)
+        {
+            programa->partidaAtual.tirosAcertados++;
+            programa->partidaAtual.campoAtaquesNoturnos[i] = NAVE_PEQUENA;
+            return resultado;
+        } else if (resultado == RESULTADO_DESTRUIU)
+        {
+            programa->partidaAtual.tirosAcertados++;
+            programa->partidaAtual.campoAtaquesNoturnos[i] = VAZIO;
+            return resultado;
+        }
+    }
+
+    programa->partidaAtual.tirosErrados++;
+    return RESULTADO_ERROU;
+}
+
+void atirarNoturno(Programa *programa) {
+    if (programa->partidaAtual.municao <= 0) return;
+
+    programa->partidaAtual.municao--;
+
+    int resultado = derrotarInimigoNoturno(programa);
+
+    if (resultado == RESULTADO_ERROU)
+    {
+        tocaSom(SOM_VAZIO);
     }
     else
     {
-        programa->partidaAtual.tipoOndaAtual = ONDA_NOTURNA;
-        programa->estado = ESTADO_ONDA_NOTURNA;
+        char arquivo[20];
+        nomeArquivoSomTipo(programa->partidaAtual.armaAtual, arquivo);
+        tocaSom(arquivo);
     }
 }
 
-void desenharFimOnda(Programa *programa) {
-    system("clear");
-    printf("Você terminou a onda e sobreviveu! Parabéns!\n");
-    printf("Tipo de onda jogada: ");
-    if (programa->partidaAtual.tipoOndaAtual == ONDA_DIURNA)
-    {
-        printf("diurna\n");
-    } else if (programa->partidaAtual.tipoOndaAtual == ONDA_NOTURNA) {
-        printf("noturna\n");
-    }
-    printf("Pontuação: %d\n", programa->partidaAtual.pontuacao);
-    printf("Tiros restantes: %d\n", programa->partidaAtual.municao);
-    printf("Tiros acertados: %d\n", programa->partidaAtual.tirosAcertados);
-    printf("Tiros errados: %d\n", programa->partidaAtual.tirosErrados);
-    printf("Escudos restantes: %d\n", programa->partidaAtual.quantidadeEscudos);
-
-    printf("[C] - continuar para a próxima onda\n");
-    printf("[R] - reiniciar a partida do zero\n");
-    printf("[ESC] - sair do jogo\n");
-}
-
-void fimOnda(Programa *programa)
+int indexEscudoParaDestruirNoturno(Programa *programa)
 {
-    desenharFimOnda(programa);
-
-    for (;;)
+    for (int i = 2; i >= 0; i--)
     {
-        char c = lechar();
-        if (c == 0) continue;
-
-        if (c == 27)
+        if (programa->partidaAtual.campoAtaquesNoturnos[i] == ESCUDO)
         {
-            finalizarPrograma(programa);
-            exit(0);
-        }
-        else if (c == 'c' || c == 'C')
-        {
-            programa->partidaAtual.ondasFinalizadas++;
-            programa->estado = ESTADO_ONDA_SORTEAR;
-            return;
-        }
-        else if (c == 'r' || c == 'R')
-        {
-            iniciarNovaPartida(programa);
-            return;
+            return i;
         }
     }
+    return -1;
 }
 
-
-void desenharFimPartida(Programa *programa) {
-    system("clear");
-    printf("Fim de jogo! Você foi derrotado.\n");
-    printf("Pontuação final: %d\n", programa->partidaAtual.pontuacao);
-    printf("Ondas concluídas: %d\n", programa->partidaAtual.ondasFinalizadas);
-
-    printf("[R] - reiniciar a partida do zero\n");
-    printf("[P] - ver placar das melhores pontuações\n");
-    printf("[ESC] - sair do jogo\n");
-}
-
-void fimPartida(Programa *programa)
+void destruirEscudoNoturno(Programa *programa, int i)
 {
-    atualizarPlacar(programa);
-    desenharFimPartida(programa);
-
-    for (;;)
-    {
-        char c = lechar();
-        if (c == 0) continue;
-
-        if (c == 27)
-        {
-            finalizarPrograma(programa);
-            exit(0);
-        }
-        else if (c == 'r' || c == 'R')
-        {
-            iniciarNovaPartida(programa);
-            return;
-        }
-        else if (c == 'p' || c == 'P')
-        {
-            programa->estado = ESTADO_MENU_MELHORES_POTUACOES;
-            return;
-        }
-    }
+    programa->partidaAtual.campoAtaquesNoturnos[i] = VAZIO;
+    programa->partidaAtual.quantidadeEscudos--;
 }
 
-void desenharMelhoresPontuacoes(Programa *programa) {
-    system("clear");
-    printf("Placar de melhores pontuações\n");
-
-    for (int i = 0; i < 3; i++)
-    {
-        printf("%dº - %d pontos\n", i + 1, programa->placar[i]);
-    }
-    
-    printf("[J] - jogar nova partida\n");
-    printf("[ESC] - sair do jogo\n");
-}
-
-void melhoresPontuacoes(Programa *programa)
+void atualizarCampoNoturno(Programa *programa)
 {
-    desenharMelhoresPontuacoes(programa);
+    int atacanteQueSai = programa->partidaAtual.campoAtaquesNoturnos[3];
 
-    for (;;)
+    if (atacanteQueSai != VAZIO)
     {
-        char c = lechar();
-        if (c == 0) continue;
+        int indiceEscudo = indexEscudoParaDestruirNoturno(programa);
 
-        if (c == 27)
+        if (indiceEscudo != -1)
         {
-            finalizarPrograma(programa);
-            exit(0);
+            destruirEscudoNoturno(programa, indiceEscudo);
         }
-        else if (c == 'j' || c == 'J')
+        else
         {
-            iniciarNovaPartida(programa);
+            programa->estado = ESTADO_FIM_PARTIDA;
+        }
+    }
+
+    for (int i = 4; i < 8; i++)
+    {
+        programa->partidaAtual.campoAtaquesNoturnos[i - 1] =
+            programa->partidaAtual.campoAtaquesNoturnos[i];
+    }
+
+    programa->partidaAtual.campoAtaquesNoturnos[7] = VAZIO;
+}
+
+void processarComandoNoturno(Programa *programa, char c)
+{
+    switch (c)
+    {
+    case 9:
+        alternarArmaNoturna(programa);
+        break;
+
+    case 13:
+        atirarNoturno(programa);
+        break;
+
+    case 27:
+        programa->estado = ESTADO_FIM_PARTIDA;
+        break;
+
+    case 32:
+        sonarNoturno(programa);
+        break;
+
+    default:
+        break;
+    }
+}
+
+int gerarTipoAtaqueNoturno()
+{
+    int tipos[5] = {0, 2, 4, 6, 8};
+    int r = rand() % 6;
+    if (r == 5) return NAVE_GRANDE;
+    return tipos[r];
+}
+
+void nascerAtaqueNoturno(Programa *programa)
+{
+    if (programa->partidaAtual.ataquesInativos == 0) return;
+
+    int tipo = gerarTipoAtaqueNoturno();
+    programa->partidaAtual.campoAtaquesNoturnos[7] = tipo;
+    programa->partidaAtual.ataquesInativos--;
+
+    char arquivo[20];
+    nomeArquivoSomTipo(tipo, arquivo);
+    tocaSom(arquivo);
+}
+
+void tickOndaNoturna(Programa *programa)
+{
+    atualizarCampoNoturno(programa);
+    nascerAtaqueNoturno(programa);
+}
+
+int ondaNoturnaTerminou(Programa *programa)
+{
+    if (programa->partidaAtual.ataquesInativos > 0) return 0;
+
+    for (int i = 3; i < 8; i++)
+    {
+        if (programa->partidaAtual.campoAtaquesNoturnos[i] != VAZIO)
+        {
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+void iniciarOndaNoturna(Programa *programa)
+{
+    programa->partidaAtual.municao = 30;
+    programa->partidaAtual.quantidadeEscudos = 3;
+    programa->partidaAtual.tirosAcertados = 0;
+    programa->partidaAtual.tirosErrados = 0;
+    programa->partidaAtual.ataquesInativos = 15;
+    programa->partidaAtual.intervaloMovimento = 6.0;
+
+    inicializarCampoAtaqueNoturno(programa);
+}
+
+void ondaNoturna(Programa *programa)
+{
+    iniciarOndaNoturna(programa);
+
+    crono cronometro;
+    crono_inicia(&cronometro);
+
+    system("clear");
+    while (1)
+    {
+        desenharAtaqueNoturno(programa);
+        printf("\r");
+        fflush(stdout);
+
+        if (ondaNoturnaTerminou(programa) == 1)
+        {
+            programa->estado = ESTADO_FIM_ONDA;
             return;
+        }
+
+        char c = lechar();
+        if (c != 0)
+        {
+            processarComandoNoturno(programa, c);
+            if (programa->estado == ESTADO_FIM_PARTIDA) return;
+        }
+
+        if (crono_parcial(&cronometro) >=
+            programa->partidaAtual.intervaloMovimento)
+        {
+            tickOndaNoturna(programa);
+            crono_inicia(&cronometro);
+            if (programa->estado == ESTADO_FIM_PARTIDA) return;
         }
     }
 }
+
+// funções do som
+
+void tocaSom(char *arquivo)
+{
+    char comando[10000];
+    sprintf(comando, "%s %s%s &", TOCAR_SOM, PASTA_SONS, arquivo);
+    system(comando);
+}
+
+void nomeArquivoSomTipo(int tipo, char *destino) {
+    if (tipo >= 0 && tipo <= 9)
+        sprintf(destino, "%d.3.wav", tipo);
+    else if (tipo == NAVE_GRANDE || tipo == NAVE_PEQUENA || tipo == ARMA_N)
+        strcpy(destino, SOM_INIMIGO_NAVE);
+    else if (tipo == ESCUDO)
+        strcpy(destino, SOM_ESCUDO);
+    else if (tipo == VAZIO) {
+        strcpy(destino, SOM_VAZIO);
+    }
+}
+
+void sonarDiurno(Programa *programa) {
+    char comandoCompleto[10000];
+    strcpy(comandoCompleto, "(");
+
+    for (int i = 0; i < 13; i++)
+    {
+        int valor = programa->partidaAtual.campoAtaquesDiurnos[i];
+        char nomeArquivo[20];
+        char trecho[60];
+
+        if (valor >= 0 && valor <= 9)
+            sprintf(nomeArquivo, "%d.3.wav", valor);
+        else if (valor == NAVE_GRANDE || valor == NAVE_PEQUENA)
+            strcpy(nomeArquivo, SOM_INIMIGO_NAVE);
+        else if (valor == ESCUDO)
+            strcpy(nomeArquivo, SOM_ESCUDO);
+        else if (valor == VAZIO)
+            strcpy(nomeArquivo, SOM_VAZIO);
+        else
+            continue;
+
+        sprintf(trecho, "%s %s%s; ", TOCAR_SOM, PASTA_SONS, nomeArquivo);
+        strcat(comandoCompleto, trecho);
+    }
+
+    strcat(comandoCompleto, ") &");
+    system(comandoCompleto);
+}
+
+void sonarNoturno(Programa *programa) {
+    char comandoCompleto[10000];
+    strcpy(comandoCompleto, "(");
+
+    for (int i = 0; i < 8; i++)
+    {
+        int valor = programa->partidaAtual.campoAtaquesNoturnos[i];
+        char nomeArquivo[20];
+        char trecho[60];
+
+        if (valor >= 0 && valor <= 8)
+            sprintf(nomeArquivo, "%d.3.wav", valor);
+        else if (valor == NAVE_GRANDE || valor == NAVE_PEQUENA)
+            strcpy(nomeArquivo, SOM_INIMIGO_NAVE);
+        else if (valor == ESCUDO)
+            strcpy(nomeArquivo, SOM_ESCUDO);
+        else if (valor == VAZIO)
+            strcpy(nomeArquivo, SOM_VAZIO);
+        else
+            continue;
+
+        sprintf(trecho, "%s %s%s; ", TOCAR_SOM, PASTA_SONS, nomeArquivo);
+        strcat(comandoCompleto, trecho);
+    }
+
+    strcat(comandoCompleto, ") &");
+    system(comandoCompleto);
+}
+
+// main
 
 int main()
 {
@@ -734,7 +1216,7 @@ int main()
                 break;
 
             case ESTADO_ONDA_NOTURNA:
-
+                ondaNoturna(&programa);
                 break;
 
             case ESTADO_ONDA_SORTEAR:
