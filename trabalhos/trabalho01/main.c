@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string.h>
+#include <math.h>
 
 // defines
 
@@ -420,7 +421,7 @@ int sorteouDiurna(Programa *programa)
 
     int sorteio = rand() % 100;
 
-    if (sorteio <= probabilidadeDiurna)
+    if (sorteio < probabilidadeDiurna)
     {
         return 1;
     } else {
@@ -460,8 +461,8 @@ void desenharFimOnda(Programa *programa) {
     printf("Tiros errados: %d\n", programa->partidaAtual.tirosErrados);
     printf("Escudos restantes: %d\n", programa->partidaAtual.quantidadeEscudos);
 
-    printf("[C] - continuar para a próxima onda\n");
-    printf("[R] - reiniciar a partida do zero\n");
+    printf("[R] - continuar para a próxima onda\n");
+    printf("[N] - reiniciar a partida do zero\n");
     printf("[ESC] - sair do jogo\n");
 }
 
@@ -480,13 +481,13 @@ void fimOnda(Programa *programa)
             finalizarPrograma(programa);
             exit(0);
         }
-        else if (c == 'c' || c == 'C')
+        else if (c == 'r' || c == 'R')
         {
             programa->partidaAtual.ondasFinalizadas++;
             programa->estado = ESTADO_ONDA_SORTEAR;
             return;
         }
-        else if (c == 'r' || c == 'R')
+        else if (c == 'n' || c == 'N')
         {
             iniciarNovaPartida(programa);
             return;
@@ -796,6 +797,7 @@ void iniciarOndaDiurna(Programa *programa)
     programa->partidaAtual.tirosErrados = 0;
     programa->partidaAtual.ataquesInativos = 20;
     programa->partidaAtual.intervaloMovimento = 2.0;
+    programa->partidaAtual.intervaloMovimento = 2.0 * pow(0.9, programa->partidaAtual.ondasFinalizadas);
 
     inicializarCampoAtaqueDiurno(programa);
 }
@@ -1063,7 +1065,8 @@ void iniciarOndaNoturna(Programa *programa)
     programa->partidaAtual.tirosAcertados = 0;
     programa->partidaAtual.tirosErrados = 0;
     programa->partidaAtual.ataquesInativos = 15;
-    programa->partidaAtual.intervaloMovimento = 6.0;
+    programa->partidaAtual.intervaloMovimento = 6.0 * pow(0.9, programa->partidaAtual.ondasFinalizadas);
+
 
     inicializarCampoAtaqueNoturno(programa);
 }
