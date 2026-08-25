@@ -72,12 +72,10 @@ static unsigned int s_proxima_potencia_2(int n)
 
 static void s_define_conteudo(Str s, byte const *conteudo, int nbytes)
 {
-    if (nbytes <= 0)
-        return;
+    if (nbytes <= 0) return;
 
     int ncaracteres = u8_conta_unichar_nos_bytes(nbytes, (byte *)conteudo);
-    if (ncaracteres == -1)
-        return;
+    if (ncaracteres == -1) return;
 
     s->nmemoria = s_proxima_potencia_2(nbytes);
     s->dados = malloc(s->nmemoria);
@@ -100,8 +98,7 @@ Str s_cria(char const *strC)
     s->ncaracteres = 0;
     s->nmemoria = 0;
 
-    if (strC != NULL)
-    {
+    if (strC != NULL) {
         s_define_conteudo(s, (byte const *)strC, strlen(strC));
     }
 
@@ -135,22 +132,21 @@ Str s_cria_de_arquivo(char *nome)
     Str s = s_cria("");
 
     FILE *arquivo = fopen(nome, "rb");
-    if (arquivo == NULL)
-        return s;
+    if (arquivo == NULL) return s;
 
     fseek(arquivo, 0, SEEK_END);
     long tamamanho = ftell(arquivo);
     fseek(arquivo, 0, SEEK_SET);
 
-    if (tamamanho > 0)
-    {
+    if (tamamanho > 0) {
         byte *tmp = malloc(tamamanho);
         assert(tmp != NULL);
         size_t lidos = fread(tmp, 1, tamamanho, arquivo);
-        if (lidos == (size_t)tamamanho)
-        {
+        
+        if (lidos == (size_t)tamamanho) {
             s_define_conteudo(s, tmp, tamamanho);
         }
+
         free(tmp);
     }
 
@@ -164,22 +160,45 @@ Str s_cria_de_arquivo(char *nome)
 int s_tam(Str_c s)
 {
     s_ok(s);
-    //...
-    return 0;
+    return s->ncaracteres;
 }
 
 char *s_strc(Str_c s)
 {
     s_ok(s);
-    //...
-    return NULL;
+
+    char *c = malloc(s->nbytes + 1);
+    assert(c != NULL);
+
+    if (s->nbytes > 0) {
+        memcpy(c, s->dados, s->nbytes);
+    }
+
+    c[s->nbytes] = '\0';
+
+    return c;
 }
 
-unichar s_ch(Str_c s, int pos)
+unichar s_ch(Str_c s, int posicao)
 {
     s_ok(s);
-    //...
-    return UNI_INV;
+
+    if (posicao < 0) {
+        posicao += s->ncaracteres;
+    }
+
+    if (posicao < 0 || posicao >= (int) s->ncaracteres) {
+        return UNI_INV;
+    }
+    
+    byte *ptr = u8_avanca_unichar(s->dados, posicao);
+
+    unichar uni;
+    int nbytes_restantes = s->nbytes - (ptr - s->dados);
+    int nb = u8_unichar_nos_bytes(nbytes_restantes, ptr, &uni);
+    if (nb == -1) return UNI_INV;
+
+    return uni;
 }
 
 // operações de busca e comparação {{{1
