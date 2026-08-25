@@ -34,8 +34,7 @@ static void s_ok(Str_c s)
 {
     assert(s != NULL);
 
-    if (s->nbytes == 0)
-    {
+    if (s->nbytes == 0) {
         assert(s->dados == NULL);
         assert(s->nmemoria == 0);
         assert(s->ncaracteres == 0);
@@ -48,8 +47,8 @@ static void s_ok(Str_c s)
     assert(s->nmemoria >= s->nbytes);
     assert(s->nmemoria >= MIN_ALLOC);
     assert((s->nmemoria & (s->nmemoria - 1)) == 0);
-    if (s->nmemoria > MIN_ALLOC)
-    {
+
+    if (s->nmemoria > MIN_ALLOC) {
         assert(s->nmemoria <= 3 * s->nbytes);
     }
 
@@ -62,8 +61,7 @@ static unsigned int s_proxima_potencia_2(int n)
 {
     unsigned int p = MIN_ALLOC;
 
-    while (p < n)
-    {
+    while (p < n) {
         p = p * 2;
     }
 
@@ -72,10 +70,14 @@ static unsigned int s_proxima_potencia_2(int n)
 
 static void s_define_conteudo(Str s, byte const *conteudo, int nbytes)
 {
-    if (nbytes <= 0) return;
+    if (nbytes <= 0) {
+        return;
+    }
 
     int ncaracteres = u8_conta_unichar_nos_bytes(nbytes, (byte *)conteudo);
-    if (ncaracteres == -1) return;
+    if (ncaracteres == -1) {
+        return;
+    }
 
     s->nmemoria = s_proxima_potencia_2(nbytes);
     s->dados = malloc(s->nmemoria);
@@ -84,6 +86,34 @@ static void s_define_conteudo(Str s, byte const *conteudo, int nbytes)
 
     s->nbytes = nbytes;
     s->ncaracteres = ncaracteres;
+}
+
+static int s_posiscao_corrigida(int posicao, int n)
+{
+    if (posicao < 0) {
+        posicao = n + posicao + 1;
+    }
+
+    if (posicao < 0) {
+        posicao = 0;
+    }
+
+    if (posicao > n) {
+        posicao = n;
+    }
+
+    return posicao;
+}
+
+static bool s_caractere_pertence(unichar c, Str_c sb)
+{
+    for (int i = 0; i < (int)sb->ncaracteres; i++) {
+        if (s_ch(sb, i) == c) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // operações de criação e destruição {{{1
@@ -132,7 +162,10 @@ Str s_cria_de_arquivo(char *nome)
     Str s = s_cria("");
 
     FILE *arquivo = fopen(nome, "rb");
-    if (arquivo == NULL) return s;
+
+    if (arquivo == NULL) {
+        return s;
+    }
 
     fseek(arquivo, 0, SEEK_END);
     long tamamanho = ftell(arquivo);
@@ -142,7 +175,7 @@ Str s_cria_de_arquivo(char *nome)
         byte *tmp = malloc(tamamanho);
         assert(tmp != NULL);
         size_t lidos = fread(tmp, 1, tamamanho, arquivo);
-        
+
         if (lidos == (size_t)tamamanho) {
             s_define_conteudo(s, tmp, tamamanho);
         }
@@ -179,24 +212,29 @@ char *s_strc(Str_c s)
     return c;
 }
 
-unichar s_ch(Str_c s, int posicao)
+unichar s_ch(Str_c s, int pos)
 {
     s_ok(s);
 
-    if (posicao < 0) {
-        posicao += s->ncaracteres;
-    }
+    pos = s_posicao_corrigida(pos, s->ncaracteres);
 
-    if (posicao < 0 || posicao >= (int) s->ncaracteres) {
+    if (pos >= (int)s->ncaracteres) {
         return UNI_INV;
     }
-    
-    byte *ptr = u8_avanca_unichar(s->dados, posicao);
+
+    byte *ptr = u8_avanca_unichar(s->dados, pos);
+
+    if (ptr == NULL) {
+        return UNI_INV;
+    }
 
     unichar uni;
     int nbytes_restantes = s->nbytes - (ptr - s->dados);
     int nb = u8_unichar_nos_bytes(nbytes_restantes, ptr, &uni);
-    if (nb == -1) return UNI_INV;
+
+    if (nb == -1) {
+        return UNI_INV;
+    }
 
     return uni;
 }
@@ -207,15 +245,36 @@ bool s_igual(Str_c s, Str_c sb)
 {
     s_ok(s);
     s_ok(sb);
-    //...
-    return false;
+
+    if (s->nbytes != sb->nbytes) {
+        return false;
+    }
+
+    if (s->ncaracteres != sb->ncaracteres) {
+        return false;
+    }
+
+    if (s->nbytes == 0) {
+        return true;
+    }
+
+    return memcmp(s->dados, sb->dados, s->nbytes) == 0;
 }
 
 int s_busca_c(Str_c s, int pos, Str_c sb)
 {
     s_ok(s);
     s_ok(sb);
-    //...
+
+    int n = s->ncaracteres;
+    pos = s_posicao_corrigida(pos, n);
+
+    for (int i = pos; i < n; i++) {
+        if (s_caractere_pertence(s_ch(s, i), sb)) {
+            return i;
+        }
+    }
+
     return -1;
 }
 
@@ -223,7 +282,16 @@ int s_busca_nc(Str_c s, int pos, Str_c sb)
 {
     s_ok(s);
     s_ok(sb);
-    //...
+
+    int n = s->ncaracteres;
+    pos = s_pos_corrigida(pos, n);
+
+    for (int i = pos; i < n; i++) {
+        if (!s_char_pertence(s_ch(s, i), sb)) {
+            return i;
+        }
+    }
+
     return -1;
 }
 
@@ -231,7 +299,16 @@ int s_busca_rc(Str_c s, int pos, Str_c sb)
 {
     s_ok(s);
     s_ok(sb);
-    //...
+
+    int n = s->ncaracteres;
+    pos = s_pos_corrigida(pos, n);
+
+    for (int i = pos - 1; i >= 0; i--) {
+        if (s_char_pertence(s_ch(s, i), sb)) {
+            return i;
+        }
+    }
+
     return -1;
 }
 
@@ -239,7 +316,16 @@ int s_busca_rnc(Str_c s, int pos, Str_c sb)
 {
     s_ok(s);
     s_ok(sb);
-    //...
+
+    int n = s->ncaracteres;
+    pos = s_pos_corrigida(pos, n);
+
+    for (int i = pos - 1; i >= 0; i--) {
+        if (!s_char_pertence(s_ch(s, i), sb)) {
+            return i;
+        }
+    }
+
     return -1;
 }
 
@@ -247,7 +333,28 @@ int s_busca_s(Str_c s, int pos, Str_c buscada)
 {
     s_ok(s);
     s_ok(buscada);
-    //...
+
+    int n = s->ncaracteres;
+    int m = buscada->ncaracteres;
+    pos = s_pos_corrigida(pos, n);
+
+    if (m == 0) {
+        return pos;
+    }
+
+    for (int i = pos; i + m <= n; i++) {
+        bool igual = true;
+        for (int j = 0; j < m; j++) {
+            if (s_ch(s, i + j) != s_ch(buscada, j)) {
+                igual = false;
+                break;
+            }
+        }
+        if (igual) {
+            return i;
+        }
+    }
+    
     return -1;
 }
 
