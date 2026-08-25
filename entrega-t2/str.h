@@ -86,7 +86,6 @@ char *s_strc(Str_c s);
 // Retorna UNI_INV se pos estiver fora dos limites de s.
 unichar s_ch(Str_c s, int pos);
 
-
 // operações de busca e comparação {{{1
 
 // Retorna true se s e sb forem iguais, false caso sejam diferentes.
@@ -126,14 +125,13 @@ int s_busca_rnc(Str_c s, int pos, Str_c sb);
 // Retorna -1 se não encontrar.
 // A posição pos deve ser interpretada como descrito na seção de
 //   declarações deste arquivo.
-// A string vazia é encontrada em todo lugar 
+// A string vazia é encontrada em todo lugar
 //   (se buscada for vazia, retorna o valor corrigido de pos).
 int s_busca_s(Str_c s, int pos, Str_c buscada);
 
-
 // operações de alteração {{{1
 
-// Substitui a substring de s que inicia no caractere na posição pos e 
+// Substitui a substring de s que inicia no caractere na posição pos e
 //   vai até o caractere na posição pos+tam-1 pelo conteúdo de sb.
 // A posição pos deve ser interpretada como descrito na seção de
 //   declarações deste arquivo.
@@ -210,7 +208,5 @@ void s_imprime(Str_c s);
 // grava o conteúdo de s em um arquivo chamado nome
 void s_grava_arquivo(Str_c s, char *nome);
 
-
 #endif // _STR_H_
 // vim: foldmethod=marker shiftwidth=2
-
