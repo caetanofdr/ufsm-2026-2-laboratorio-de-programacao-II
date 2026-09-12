@@ -174,6 +174,43 @@ Str s_cria(char const *strC)
     return s;
 }
 
+Str s_cria_número(double num)
+{
+    char tmp[100];
+
+    snprintf(tmp, sizeof(tmp), "%.15lf", num);
+    
+    char *pos = tmp + strlen(tmp) - 1;
+
+    while (*pos == '0') {
+        *pos = '\0';
+        pos--;
+    }
+
+    if (*pos == '.') {
+        *pos = '\0';
+    }
+
+    Str num_str = s_cria(tmp);
+    
+    return num_str;
+}
+
+Str s_cria_unindo(Lista l, Str sep)
+{
+    Str s = s_cria("");
+
+    for (int i = 0; i < l_tam(l); i++) {
+        s_anexa(s, l_dado_pos(l, i));
+
+        if (i == l_tam(l) - 1) break;
+
+        s_anexa(s, sep);
+    }
+    
+    return s;
+}
+
 void s_destroi(Str s)
 {
     s_ok(s);
@@ -275,6 +312,14 @@ unichar s_ch(Str_c s, int pos)
     }
 
     return uni;
+}
+
+double s_número(Str_c s)
+{
+    char *sn = s_strc(s);
+    double n = strtod(sn, NULL);
+    free(sn);
+    return n;
 }
 
 // operações de busca e comparação {{{1
