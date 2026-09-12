@@ -67,10 +67,10 @@ build*/
 out/
 
 # ---------- Make ----------
-Makefile
-!Makefile.am
-!Makefile.in
-.depend
+# Makefile
+# !Makefile.am
+# !Makefile.in
+# .depend
 
 # ---------- Autotools ----------
 autom4te.cache/
