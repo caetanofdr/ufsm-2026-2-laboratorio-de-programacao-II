@@ -75,12 +75,45 @@ static const acao_t tabela[7][7] = {
     },
 };
 
+static bool eh_numero(unichar c)
+{
+    return 
+        (c >= '0' && c <= '9') || 
+        (c == '.');
+}
+
+static bool eh_letra(unichar c)
+{
+    return 
+        (c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') || 
+        (c == '_') ||
+        (c == '$');
+}
+
 static bool eh_operando(unichar c)
 {
-    return (c >= '0' && c <= '9') ||
-       (c >= 'a' && c <= 'z') ||
-       (c >= 'A' && c <= 'Z') ||
-       c == '.' || c == '_' || c == '$';
+    return 
+        eh_numero(c) || 
+        eh_letra(c);
+}
+
+static bool eh_espaco(unichar c)
+{
+    return 
+        (c == ' ') || 
+        (c == '\n') ||
+        (c == '\t') ||
+        (c == '\v') ||
+        (c == '\f') ||
+        (c == '\r');
+}
+
+static bool continua_nome(unichar c)
+{
+    return 
+        eh_letra(c) ||
+        (c >= '0' && c <= '9');
 }
 
 static categoria_t classifica_token(Str token)
@@ -102,4 +135,42 @@ static categoria_t classifica_token(Str token)
     }
     
     return CAT_ERRO;
+}
+
+Lista tokeniza(Str txt)
+{
+    Lista resultado = l_cria();
+    int n = s_tam(txt);
+
+    int i = 0;
+
+    while (i < n) {
+        unichar c = s_ch(txt, i);
+        
+        if (eh_espaco(c)) {
+            i++;
+            continue;
+        }
+        
+        int inicio = i;
+        int tam;
+
+        if (eh_numero(c)) {
+            i++;
+            while (i < n && eh_numero(s_ch(txt, i))) i++;
+            tam = i - inicio;
+        } else if (eh_letra(c)) {
+            i++;
+            while (i < n && continua_nome(s_ch(txt, i))) i++;
+            tam = i - inicio;
+        } else {
+            i++;
+            tam = 1;
+        } 
+
+        Str token = s_cria_substring(txt, inicio, tam);
+        l_insere_fim(resultado, token);
+    }
+
+    return resultado;
 }
