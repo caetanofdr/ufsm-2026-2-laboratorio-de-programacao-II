@@ -1,3 +1,5 @@
+#include <math.h>
+
 #include "calc.h"
 #include "str.h"
 #include "lista.h"
@@ -75,6 +77,14 @@ static const acao_t tabela[7][7] = {
     },
 };
 
+static bool eh_numero(unichar c);
+static bool eh_letra(unichar c);
+static bool eh_operando(unichar c);
+static bool eh_espaco(unichar c);
+static bool continua_nome(unichar c);
+static categoria_t classifica_token(Str token);
+
+
 static bool eh_numero(unichar c)
 {
     return 
@@ -135,6 +145,141 @@ static categoria_t classifica_token(Str token)
     }
     
     return CAT_ERRO;
+}
+
+static Str opera(unichar operacao, Lista pilha_operandos)
+{
+    if (l_tam(pilha_operandos) < 2) {
+        return s_cria("#ERRO faltam operandos");
+    }
+
+    Str b = l_desempilha(pilha_operandos);
+    Str a = l_desempilha(pilha_operandos);
+
+    double va = s_número(a);
+    double vb = s_número(b);
+    double resultado = 0;
+
+    switch (operacao) {
+        case '+': resultado = va + vb; break;
+        case '-': resultado = va - vb; break;
+        case '*': resultado = va * vb; break;
+        case '/': resultado = va / vb; break;
+        case '^': resultado = pow(va, vb); break;
+    }
+
+    s_destroi(a);
+    s_destroi(b);
+
+    l_empilha(pilha_operandos, s_cria_número(resultado));
+
+    return NULL;
+}
+
+static void libera_memoria_lista(Lista l)
+{
+    for (int i = 0; i < l_tam(l); i++) {
+        s_destroi(l_dado_pos(l, i));
+    }
+
+    l_destroi(l);
+}
+
+static void liberar_memoria_calculadora(Lista p_operadores, Lista p_operandos, Lista l_tokens)
+{
+    libera_memoria_lista(p_operadores);
+    libera_memoria_lista(p_operandos);
+    libera_memoria_lista(l_tokens);
+
+}
+
+Str calculadora(Str expressão)
+{
+    Lista pilha_operadores = l_cria();
+    Lista pilha_operandos = l_cria();
+    Lista lista_tokens = tokeniza(expressão);
+
+    int i = 0;
+
+    while (true) {
+        Str token_atual = NULL;
+        categoria_t coluna;
+
+        if (i >= l_tam(lista_tokens)) {
+            coluna = CAT_FIM;
+        } else {
+            token_atual = l_dado_pos(lista_tokens, i);
+            coluna = classifica_token(token_atual);
+        }
+
+        if (coluna == CAT_OPERANDO) {
+            l_empilha(pilha_operandos, s_cria_cópia(token_atual));
+            i++;
+            continue;
+        }
+
+        if (coluna == CAT_ERRO) {
+            liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
+            return s_cria("#ERRO token inválido");
+        }
+
+        categoria_t linha;
+
+        if (l_vazia(pilha_operadores)) {
+            linha = CAT_VAZIA;
+        } else {
+            Str topo = l_topo(pilha_operadores);
+            linha = classifica_token(topo);
+        }
+
+        acao_t acao = tabela[linha][coluna];
+
+        switch (acao) {
+            case EMPILHA:
+                l_empilha(pilha_operadores, s_cria_cópia(token_atual));
+                i++;
+                break;
+
+            case OPERA: {
+                Str operador = l_desempilha(pilha_operadores);
+                unichar op = s_ch(operador, 0);
+                s_destroi(operador);
+
+                Str erro = opera(op, pilha_operandos);
+                if (erro != NULL) {
+                    liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
+                    return erro;
+                }
+
+                break;
+            }
+
+            case TERMINA: {
+                if (l_tam(pilha_operandos) != 1) {
+                    liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
+                    return s_cria("#ERRO expressão inválida");
+                }
+                Str resultado = l_desempilha(pilha_operandos);
+                liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
+                return resultado;
+            }
+
+            case DESCARTA: {
+                Str abre = l_desempilha(pilha_operadores);
+                s_destroi(abre);
+                i++;
+                break;
+            }
+
+            case ERRO_FALTA_ABRE:
+                liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
+                return s_cria("#ERRO falta (");
+
+            case ERRO_FALTA_FECHA:
+                liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
+                return s_cria("#ERRO falta )");
+        }
+    }
 }
 
 Lista tokeniza(Str txt)
