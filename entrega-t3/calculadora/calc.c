@@ -104,6 +104,7 @@ static bool eh_espaco(unichar c);
 static bool inicia_nome(unichar c);
 static bool continua_nome(unichar c);
 static categoria_t classifica_token(Str token);
+static double valor_operando(Str operando, bool *sucesso);
 
 static Dicionário dicionario_variaveis = NULL;
 
@@ -213,15 +214,27 @@ static categoria_t classifica_token(Str token)
 
 static Str opera(unichar operacao, Lista pilha_operandos)
 {
-    if (l_tam(pilha_operandos) < 2) {
-        return s_cria("#ERRO faltam operandos");
-    }
+    if (l_tam(pilha_operandos) < 2) return s_cria("#ERRO faltam operandos");
 
     Str b = l_desempilha(pilha_operandos);
     Str a = l_desempilha(pilha_operandos);
 
-    double va = s_número(a);
-    double vb = s_número(b);
+    bool sucesso;
+    
+    double va = valor_operando(a, &sucesso);
+    if (sucesso == false) {
+        s_destroi(a);
+        s_destroi(b);
+        return s_cria("#ERRO variável inesistente");
+    }
+    
+    double vb = valor_operando(b, &sucesso);
+    if (sucesso == false) {
+        s_destroi(a);
+        s_destroi(b);
+        return s_cria("#ERRO variável inesistente");
+    }
+
     double resultado = 0;
 
     switch (operacao) {
@@ -240,6 +253,41 @@ static Str opera(unichar operacao, Lista pilha_operandos)
     return NULL;
 }
 
+static Str atribui(Lista pilha_operandos)
+{
+    if (l_tam(pilha_operandos) < 2) return s_cria("#ERRO faltam operandos");
+
+    Str valor_token = l_desempilha(pilha_operandos);
+    Str nome_var = l_desempilha(pilha_operandos);
+
+    bool sucesso;
+    double v = valor_operando(valor_token, &sucesso);
+    s_destroi(valor_token);
+
+    if (sucesso == false) {
+        s_destroi(nome_var);
+        return s_cria("#ERRO variável inesistente");
+    }
+
+    unichar c = s_ch(nome_var, 0);
+    if (!inicia_nome(c)) {
+        s_destroi(nome_var);
+        return s_cria("#ERRO atribuição precisa de um nome de variável");
+    }
+
+    Str valor_novo = s_cria_número(v);
+
+    valor_t valor_antigo = dic_insere(dicionario_variaveis, nome_var, valor_novo);
+    if (valor_antigo != VALOR_NÃO_EXISTE) {
+        s_destroi(nome_var);
+        s_destroi((Str) valor_antigo);
+    }
+
+    l_empilha(pilha_operandos, s_cria_cópia(valor_novo));
+
+    return NULL;
+}
+
 static void libera_memoria_lista(Lista l)
 {
     for (int i = 0; i < l_tam(l); i++) {
@@ -254,7 +302,30 @@ static void liberar_memoria_calculadora(Lista p_operadores, Lista p_operandos, L
     libera_memoria_lista(p_operadores);
     libera_memoria_lista(p_operandos);
     libera_memoria_lista(l_tokens);
+}
 
+static double valor_operando(Str operando, bool *sucesso)
+{
+    unichar c = s_ch(operando, 0);
+
+    if (eh_numero(c)) {
+        *sucesso = true;
+        return s_número(operando);
+    } else if (eh_letra(c)) {
+        valor_t busca = dic_busca(dicionario_variaveis, operando);
+        
+        if (busca == VALOR_NÃO_EXISTE) {
+            *sucesso = false;
+            return 0;
+        }
+
+        double r = s_número(busca);
+        *sucesso = true;
+        return r;
+    } else {
+        *sucesso = false;
+        return 0;
+    }
 }
 
 Str calculadora(Str expressão)
@@ -324,7 +395,15 @@ Str calculadora(Str expressão)
             }
 
             case ATRIBUI: {
-                // amanhã eu faço
+                Str operador = l_desempilha(pilha_operadores);
+                s_destroi(operador);
+
+                Str erro = atribui(pilha_operandos);
+                if (erro != NULL) {
+                    liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
+                    return erro;
+                }
+
                 break;
             }
 
