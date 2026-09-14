@@ -1,4 +1,5 @@
 #include <math.h>
+#include <string.h>
 
 #include "calc.h"
 #include "str.h"
@@ -9,6 +10,7 @@
 
 typedef enum {
     OPERA,
+    ATRIBUI,
     TERMINA,
     EMPILHA,
     DESCARTA,
@@ -24,13 +26,14 @@ typedef enum {
     CAT_POTENCIA,
     CAT_ABRE,
     CAT_FECHA,
+    CAT_ATRIBUICAO,
     CAT_OPERANDO,
     CAT_ERRO
 } categoria_t;
 
 /* TABELA DE PRECEDÊNCIA */
 
-static const acao_t tabela[7][7] = {
+static const acao_t tabela[8][8] = {
     [CAT_VAZIA] = {
         [CAT_FIM]            = TERMINA,
         [CAT_ADITIVO]        = EMPILHA,
@@ -38,6 +41,7 @@ static const acao_t tabela[7][7] = {
         [CAT_POTENCIA]       = EMPILHA,
         [CAT_ABRE]           = EMPILHA,
         [CAT_FECHA]          = ERRO_FALTA_ABRE,
+        [CAT_ATRIBUICAO]     = EMPILHA,
     },
 
     [CAT_ADITIVO] = {
@@ -47,6 +51,7 @@ static const acao_t tabela[7][7] = {
         [CAT_POTENCIA]       = EMPILHA,
         [CAT_ABRE]           = EMPILHA,
         [CAT_FECHA]          = OPERA,
+        [CAT_ATRIBUICAO]     = EMPILHA,
     },
 
     [CAT_MULTIPLICATIVO] = {
@@ -56,6 +61,7 @@ static const acao_t tabela[7][7] = {
         [CAT_POTENCIA]       = EMPILHA,
         [CAT_ABRE]           = EMPILHA,
         [CAT_FECHA]          = OPERA,
+        [CAT_ATRIBUICAO]     = EMPILHA,
     },
 
     [CAT_POTENCIA] = {
@@ -65,6 +71,7 @@ static const acao_t tabela[7][7] = {
         [CAT_POTENCIA]       = EMPILHA,
         [CAT_ABRE]           = EMPILHA,
         [CAT_FECHA]          = OPERA,
+        [CAT_ATRIBUICAO]     = EMPILHA,
     },
 
     [CAT_ABRE] = {
@@ -74,16 +81,48 @@ static const acao_t tabela[7][7] = {
         [CAT_POTENCIA]       = EMPILHA,
         [CAT_ABRE]           = EMPILHA,
         [CAT_FECHA]          = DESCARTA,
+        [CAT_ATRIBUICAO]     = EMPILHA,
+    },
+
+    [CAT_ATRIBUICAO] = {
+        [CAT_FIM]            = ATRIBUI,
+        [CAT_ADITIVO]        = EMPILHA,
+        [CAT_MULTIPLICATIVO] = EMPILHA,
+        [CAT_POTENCIA]       = EMPILHA,
+        [CAT_ABRE]           = EMPILHA,
+        [CAT_FECHA]          = ATRIBUI,
+        [CAT_ATRIBUICAO]     = EMPILHA,
     },
 };
-
+static bool str_menor(chave_t a, chave_t b);
+static bool str_igual(chave_t a, chave_t b);
 static bool eh_numero(unichar c);
 static bool eh_letra(unichar c);
 static bool eh_operando(unichar c);
+static bool eh_operador(unichar c);
 static bool eh_espaco(unichar c);
+static bool inicia_nome(unichar c);
 static bool continua_nome(unichar c);
 static categoria_t classifica_token(Str token);
 
+static Dicionário dicionario_variaveis = NULL;
+
+static bool str_menor(chave_t a, chave_t b)
+{
+    char *pa = s_strc(a);
+    char *pb = s_strc(b);
+    bool r = strcmp(pa, pb) < 0;
+
+    free(pa);
+    free(pb);
+
+    return r;
+}
+
+static bool str_igual(chave_t a, chave_t b)
+{
+    return s_igual(a, b);
+}
 
 static bool eh_numero(unichar c)
 {
@@ -108,6 +147,19 @@ static bool eh_operando(unichar c)
         eh_letra(c);
 }
 
+static bool eh_operador(unichar c)
+{
+    return 
+        (c == '+') ||
+        (c == '-') ||
+        (c == '*') ||
+        (c == '/') ||
+        (c == '^') ||
+        (c == '(') ||
+        (c == ')') ||
+        (c == '=');
+}
+
 static bool eh_espaco(unichar c)
 {
     return 
@@ -119,11 +171,21 @@ static bool eh_espaco(unichar c)
         (c == '\r');
 }
 
+static bool inicia_nome(unichar c)
+{
+    return 
+        (c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') || 
+        (c == '$');
+}
+
 static bool continua_nome(unichar c)
 {
     return 
-        eh_letra(c) ||
-        (c >= '0' && c <= '9');
+        (c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') || 
+        (c >= '0' && c <= '9') ||
+        (c == '_');
 }
 
 static categoria_t classifica_token(Str token)
@@ -140,6 +202,8 @@ static categoria_t classifica_token(Str token)
         return CAT_ABRE;
     } else if (c == ')') {
         return CAT_FECHA;
+    } else if (c == '=') {
+        return CAT_ATRIBUICAO;
     } else if (eh_operando(c)) {
         return CAT_OPERANDO;
     }
@@ -195,6 +259,11 @@ static void liberar_memoria_calculadora(Lista p_operadores, Lista p_operandos, L
 
 Str calculadora(Str expressão)
 {
+    if (dicionario_variaveis == NULL) {
+        dicionario_variaveis = dic_cria(str_menor, str_igual);
+    }
+    
+
     Lista pilha_operadores = l_cria();
     Lista pilha_operandos = l_cria();
     Lista lista_tokens = tokeniza(expressão);
@@ -254,6 +323,11 @@ Str calculadora(Str expressão)
                 break;
             }
 
+            case ATRIBUI: {
+                // amanhã eu faço
+                break;
+            }
+
             case TERMINA: {
                 if (l_tam(pilha_operandos) != 1) {
                     liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
@@ -300,11 +374,14 @@ Lista tokeniza(Str txt)
         int inicio = i;
         int tam;
 
-        if (eh_numero(c)) {
+        if (eh_operador(c)) {
+            i++;
+            tam = 1;
+        } else if (eh_numero(c)) {
             i++;
             while (i < n && eh_numero(s_ch(txt, i))) i++;
             tam = i - inicio;
-        } else if (eh_letra(c)) {
+        } else if (inicia_nome(c)) {
             i++;
             while (i < n && continua_nome(s_ch(txt, i))) i++;
             tam = i - inicio;
