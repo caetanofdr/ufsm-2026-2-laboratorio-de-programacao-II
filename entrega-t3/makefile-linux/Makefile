@@ -17,7 +17,7 @@ release: CFLAGS = $(CFLAGS_RELEASE)
 release: $(EXEC)
 
 $(EXEC): $(FONTES)
-	$(CC) $(CFLAGS) $(FONTES) -o $(EXEC)
+	$(CC) $(CFLAGS) $(FONTES) -lm -o $(EXEC)
 
 clean:
 	rm -f $(EXEC)
