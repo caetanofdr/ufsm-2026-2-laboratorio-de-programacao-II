@@ -412,7 +412,24 @@ Str calculadora(Str expressão)
                     liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
                     return s_cria("#ERRO expressão inválida");
                 }
+
                 Str resultado = l_desempilha(pilha_operandos);
+                unichar primeiro_char = s_ch(resultado, 0);
+
+                if (eh_letra(primeiro_char)) {
+                    bool sucesso;
+                    double numero = valor_operando(resultado, &sucesso);
+                    
+                    s_destroi(resultado); 
+
+                    if (!sucesso) {
+                        liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
+                        return s_cria("#ERRO variável inesistente");
+                    }
+
+                    resultado = s_cria_número(numero);
+                }
+
                 liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
                 return resultado;
             }

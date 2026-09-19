@@ -7,9 +7,8 @@ CFLAGS_RELEASE = $(CFLAGS_COMUM) -O2
 FONTES = main.c string/str.c utf8/utf8.c dicionario/dic_simples.c lista/lista.c calculadora/calc.c
 EXEC = programa
 
-CC = gcc
+CC = clang
 
-debug: CC = clang
 debug: CFLAGS = $(CFLAGS_DEBUG)
 debug: $(EXEC)
 
@@ -17,7 +16,7 @@ release: CFLAGS = $(CFLAGS_RELEASE)
 release: $(EXEC)
 
 $(EXEC): $(FONTES)
-	$(CC) $(CFLAGS) $(FONTES) -lm -o $(EXEC)
+	$(CC) $(CFLAGS) $(FONTES) -o $(EXEC)
 
 clean:
 	rm -f $(EXEC)
