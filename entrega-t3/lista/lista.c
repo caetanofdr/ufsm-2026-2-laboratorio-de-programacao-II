@@ -164,6 +164,7 @@ bool l_vazia(Lista l)
 void l_imprime(Lista l)
 {
     l_ok(l);
+    if (l_vazia(l)) return;
 
     No *p = l->sentinela->proximo;
 
@@ -193,7 +194,7 @@ void l_insere_pos(Lista l, dado_t d, int p)
 {
     l_ok(l);
 
-    if (l->tamanho < p) return;
+    if (l->tamanho < p || p < 0) return;
 
     No *inserido = l_cria_no();
 
@@ -244,7 +245,7 @@ dado_t l_remove_pos(Lista l, int pos)
 {
     l_ok(l);
 
-    if (l->tamanho <= pos) return NULL;
+    if (l->tamanho <= pos || pos < 0) return NULL;
 
     No *removido = l_no_na_posicao(l, pos);
     No *anterior = removido->anterior;

@@ -120,6 +120,16 @@ static bool str_menor(chave_t a, chave_t b)
     return r;
 }
 
+static Str normaliza_numero(Str operando)
+{
+    bool sucesso;
+    double valor = valor_operando(operando, &sucesso);
+
+    if (!sucesso) return NULL;
+
+    return s_cria_número(valor);
+}
+
 static bool str_igual(chave_t a, chave_t b)
 {
     return s_igual(a, b);
@@ -137,7 +147,6 @@ static bool eh_letra(unichar c)
     return 
         (c >= 'a' && c <= 'z') ||
         (c >= 'A' && c <= 'Z') || 
-        (c == '_') ||
         (c == '$');
 }
 
@@ -225,17 +234,23 @@ static Str opera(unichar operacao, Lista pilha_operandos)
     if (sucesso == false) {
         s_destroi(a);
         s_destroi(b);
-        return s_cria("#ERRO variável inesistente");
+        return s_cria("#ERRO variável inexistente");
     }
     
     double vb = valor_operando(b, &sucesso);
     if (sucesso == false) {
         s_destroi(a);
         s_destroi(b);
-        return s_cria("#ERRO variável inesistente");
+        return s_cria("#ERRO variável inexistente");
     }
 
     double resultado = 0;
+
+    if (operacao == '/' && vb == 0) {
+        s_destroi(a);
+        s_destroi(b);
+        return s_cria("#ERRO divisão por 0");
+    }
 
     switch (operacao) {
         case '+': resultado = va + vb; break;
@@ -243,6 +258,13 @@ static Str opera(unichar operacao, Lista pilha_operandos)
         case '*': resultado = va * vb; break;
         case '/': resultado = va / vb; break;
         case '^': resultado = pow(va, vb); break;
+    }
+
+    if (!isfinite(resultado)) {
+        s_destroi(a);
+        s_destroi(b);
+
+        return s_cria("#ERRO resultado inválido");
     }
 
     s_destroi(a);
@@ -266,7 +288,7 @@ static Str atribui(Lista pilha_operandos)
 
     if (sucesso == false) {
         s_destroi(nome_var);
-        return s_cria("#ERRO variável inesistente");
+        return s_cria("#ERRO variável inexistente");
     }
 
     unichar c = s_ch(nome_var, 0);
@@ -308,10 +330,7 @@ static double valor_operando(Str operando, bool *sucesso)
 {
     unichar c = s_ch(operando, 0);
 
-    if (eh_numero(c)) {
-        *sucesso = true;
-        return s_número(operando);
-    } else if (eh_letra(c)) {
+    if (eh_letra(c)) {
         valor_t busca = dic_busca(dicionario_variaveis, operando);
         
         if (busca == VALOR_NÃO_EXISTE) {
@@ -323,8 +342,8 @@ static double valor_operando(Str operando, bool *sucesso)
         *sucesso = true;
         return r;
     } else {
-        *sucesso = false;
-        return 0;
+        *sucesso = true;
+        return s_número(operando);
     }
 }
 
@@ -353,6 +372,11 @@ Str calculadora(Str expressão)
         }
 
         if (coluna == CAT_OPERANDO) {
+            if (eh_numero(s_ch(token_atual, 0)) && !isfinite(s_número(token_atual))) {
+                liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
+                return s_cria("#ERRO número inválido");
+            }
+
             l_empilha(pilha_operandos, s_cria_cópia(token_atual));
             i++;
             continue;
@@ -413,24 +437,16 @@ Str calculadora(Str expressão)
                     return s_cria("#ERRO expressão inválida");
                 }
 
-                Str resultado = l_desempilha(pilha_operandos);
-                unichar primeiro_char = s_ch(resultado, 0);
-
-                if (eh_letra(primeiro_char)) {
-                    bool sucesso;
-                    double numero = valor_operando(resultado, &sucesso);
-                    
-                    s_destroi(resultado); 
-
-                    if (!sucesso) {
-                        liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
-                        return s_cria("#ERRO variável inesistente");
-                    }
-
-                    resultado = s_cria_número(numero);
-                }
+                Str ultimo = l_desempilha(pilha_operandos);
+                Str resultado = normaliza_numero(ultimo);
+                s_destroi(ultimo);
 
                 liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
+
+                if (resultado == NULL) {
+                    return s_cria("#ERRO variável inexistente");
+                }
+
                 return resultado;
             }
 
@@ -491,4 +507,21 @@ Lista tokeniza(Str txt)
     }
 
     return resultado;
+}
+
+void calculadora_libera(void)
+{
+    if (dicionario_variaveis == NULL) return;
+
+    chave_t chave;
+    valor_t valor;
+
+    dic_inicia_percurso(dicionario_variaveis);
+    while (dic_próximo(dicionario_variaveis, &chave, &valor)) {
+        s_destroi((Str) chave);
+        s_destroi((Str) valor);
+    }
+
+    dic_destrói(dicionario_variaveis);
+    dicionario_variaveis = NULL;
 }

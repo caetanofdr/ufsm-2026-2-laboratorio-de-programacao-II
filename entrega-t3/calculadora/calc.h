@@ -25,4 +25,6 @@ Str calculadora(Str expressão);
 // "92+a ba 3b3 ** *  " -> ["92" "+" "a" "ba" "3" "b3" "*" "*" "*"]
 Lista tokeniza(Str txt);
 
+void calculadora_libera(void);
+
 #endif // CALC_H

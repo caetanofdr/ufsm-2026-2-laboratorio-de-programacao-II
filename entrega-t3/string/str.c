@@ -7,6 +7,7 @@
 #include <assert.h>
 
 #define MIN_ALLOC 8 // alocação mínima
+#define NUMERO_MAXIMO 500
 
 struct str
 {
@@ -176,7 +177,7 @@ Str s_cria(char const *strC)
 
 Str s_cria_número(double num)
 {
-    char tmp[100];
+    char tmp[NUMERO_MAXIMO];
 
     snprintf(tmp, sizeof(tmp), "%.15lf", num);
     
@@ -189,6 +190,10 @@ Str s_cria_número(double num)
 
     if (*pos == '.') {
         *pos = '\0';
+    }
+
+    if (strcmp(tmp, "-0") == 0) {
+        strcpy(tmp, "0");
     }
 
     Str num_str = s_cria(tmp);

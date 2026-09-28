@@ -42,5 +42,7 @@ int main()
     s_destroi(sep_saida);
     s_destroi(sep_linhas);
 
+    calculadora_libera();
+
     return 0;
 }
