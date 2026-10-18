@@ -121,6 +121,7 @@ $RECYCLE.BIN/
 *.msix
 *.msm
 *.msp
+*:Zone.Identifier
 
 # ---------- macOS ----------
 .DS_Store
@@ -258,3 +259,8 @@ vgcore.*
 *.patch
 compile_flags.txt
 .cache/
+
+# ---------- Executáveis dos trabalhos ----------
+entrega-t3/programa
+entrega-t4/cobra
+entrega-t4/testa_grafo
