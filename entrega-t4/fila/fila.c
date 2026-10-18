@@ -29,7 +29,7 @@ struct percurso
 struct fila
 {
     int tamanho_dado;
-    unsigned int tamanho;
+    int tamanho;
     No *sentinela;
     struct percurso percurso;
 };
@@ -49,22 +49,19 @@ static void f_ok(Fila f)
     assert(f->tamanho_dado > 0);
     f_no_ok(f->sentinela);
 
+    assert(f->tamanho >= 0);
+    assert(f->sentinela->dado == NULL);
+
     if (f->tamanho == 0) {
         assert(f->sentinela->proximo == f->sentinela);
         assert(f->sentinela->anterior == f->sentinela);
-        assert(f->sentinela->dado == NULL);
-        return;
     }
+}
 
-    unsigned int tamanho;
-    No *p = f->sentinela->proximo;
-
-    for (tamanho = 0; p != f->sentinela; tamanho++) {
-        f_no_ok(p);
-        p = p->proximo;
-    }
-
-    assert(tamanho == f->tamanho);
+static void f_cancela_percurso(Fila f)
+{
+    f->percurso.posicao = NULL;
+    f->percurso.sentido = PERCURSO_NAO_INICIADO;
 }
 
 static void f_no_destroi(No *no)
@@ -99,8 +96,7 @@ Fila f_cria(int tam_do_dado)
 
     f_no_ok(f->sentinela);
 
-    f->percurso.posicao = NULL;
-    f->percurso.sentido = PERCURSO_NAO_INICIADO;
+    f_cancela_percurso(f);
 
     f->tamanho = 0;
     f->tamanho_dado = tam_do_dado;
@@ -116,7 +112,7 @@ void f_destrói(Fila self)
 
     No *p = self->sentinela->proximo;
 
-    for (unsigned int i = 0; i < self->tamanho; i++) {
+    for (int i = 0; i < self->tamanho; i++) {
         No *temporario = p;
         p = p->proximo;
         f_no_destroi(temporario);
@@ -148,6 +144,7 @@ void f_remove(Fila self, void *pdado)
     self->tamanho--;
 
     f_no_destroi(removido);
+    f_cancela_percurso(self);
 }
 
 void f_insere(Fila self, void *pdado)
@@ -165,16 +162,21 @@ void f_insere(Fila self, void *pdado)
     sentinela->anterior = inserido;
 
     self->tamanho++;
+    f_cancela_percurso(self);
 }
 
 void f_inicia_percurso(Fila self, int pos_inicial)
 {
     f_ok(self);
-    int tamanho = (int) self->tamanho;
+    int tamanho = self->tamanho;
+
+    if (pos_inicial >= tamanho || pos_inicial < -tamanho) {
+        self->percurso.posicao = self->sentinela;
+        self->percurso.sentido = PERCURSO_PARA_FRENTE;
+        return;
+    }
 
     if (pos_inicial < 0) {
-        assert(pos_inicial >= -tamanho);
-
         No *p = self->sentinela->anterior;
 
         for (int i = -1; i > pos_inicial; i--) {
@@ -185,8 +187,6 @@ void f_inicia_percurso(Fila self, int pos_inicial)
         self->percurso.sentido = PERCURSO_PARA_TRAS;
         return;
     }
-
-    assert(pos_inicial < tamanho);
 
     No *p = self->sentinela->proximo;
 
@@ -200,7 +200,7 @@ void f_inicia_percurso(Fila self, int pos_inicial)
 
 bool f_próximo(Fila self, void *pdado)
 {
-    assert(self != NULL);
+    f_ok(self);
 
     if (self->percurso.sentido == PERCURSO_NAO_INICIADO) return false;
     if (self->percurso.posicao == self->sentinela) return false;
