@@ -28,8 +28,8 @@ struct percurso
 
 struct fila
 {
-    int tamanho_dado;
     int tamanho;
+    int tamanho_dado;
     No *sentinela;
     struct percurso percurso;
 };
