@@ -135,5 +135,35 @@ int g_insere_nó(Grafo self, void *p_dado)
 
 void g_remove_nó(Grafo self, int nó)
 {
-    
+    g_ok(self);
+    assert(nó >= 0 && nó < self->tamanho);
+
+    int n = self->tamanho;
+    void *removido = self->dados[nó];
+
+    for (int i = nó; i < n - 1; i++) {
+        self->dados[i] = self->dados[i + 1];
+    }
+
+    for (int i = 0; i < n; i++) {
+        free(self->arestas[nó][i]);
+        if (i != nó) free(self->arestas[i][nó]);
+    }
+
+    free(self->arestas[nó]);
+
+    for (int i = nó; i < n - 1; i++) {
+        self->arestas[i] = self->arestas[i + 1];
+    }
+
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = nó; j < n - 1; j++) {
+            self->arestas[i][j] = self->arestas[i][j + 1];
+        }
+    }
+
+    free(removido);
+
+    self->tamanho--;
+    g_cancela_consulta(self);
 }
