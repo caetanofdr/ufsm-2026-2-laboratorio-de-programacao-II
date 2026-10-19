@@ -1,6 +1,7 @@
 #include "grafo.h"
 
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 typedef enum
@@ -91,4 +92,48 @@ void g_destrói(Grafo self)
     free(self->arestas);
 
     free(self);
+}
+
+int g_insere_nó(Grafo self, void *p_dado)
+{
+    g_ok(self);
+
+    int n = self->tamanho;
+
+    void **tmp_dados = realloc(self->dados, (n + 1) * sizeof(void *));
+    if (tmp_dados == NULL) return -1;
+    self->dados = tmp_dados;
+
+    self->dados[n] = malloc(self->tamanho_no);
+    if (self->dados[n] == NULL) return -1;
+
+    for (int i = 0; i < n; i++) {
+        void **tmp_linha = realloc(self->arestas[i], (n + 1) * sizeof(void *));
+        if (tmp_linha == NULL) return -1;
+        self->arestas[i] = tmp_linha;
+        self->arestas[i][n] = NULL;
+    }
+
+    void ***tmp_arestas = realloc(self->arestas, (n + 1) * sizeof(void **));
+    if (tmp_arestas == NULL) return -1;
+    self->arestas = tmp_arestas;
+
+    self->arestas[n] = malloc((n + 1) * sizeof(void *));
+    if (self->arestas[n] == NULL) return -1;
+
+    for (int j = 0; j <= n; j++) {
+        self->arestas[n][j] = NULL;
+    }
+
+    memcpy(self->dados[n], p_dado, self->tamanho_no);
+
+    self->tamanho++;
+    g_cancela_consulta(self);
+
+    return self->tamanho - 1;
+}
+
+void g_remove_nó(Grafo self, int nó)
+{
+    
 }
