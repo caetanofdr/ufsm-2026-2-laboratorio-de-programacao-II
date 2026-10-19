@@ -167,3 +167,26 @@ void g_remove_nó(Grafo self, int nó)
     self->tamanho--;
     g_cancela_consulta(self);
 }
+
+void g_altera_valor_do_nó(Grafo self, int nó, void *p_dado)
+{
+    g_ok(self);
+    assert(nó >= 0 && nó < self->tamanho);
+
+    memcpy(self->dados[nó], p_dado, self->tamanho_no);
+}
+
+void *g_valor_do_nó(Grafo self, int nó)
+{
+    g_ok(self);
+    assert(nó >= 0 && nó < self->tamanho);
+
+    return self->dados[nó];
+}
+
+int g_num_nós(Grafo self)
+{
+    g_ok(self);
+    
+    return self->tamanho;
+}
