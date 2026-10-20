@@ -197,7 +197,20 @@ void g_altera_valor_da_aresta(Grafo self, int nó_origem, int nó_destino, void 
     assert(nó_origem >= 0 && nó_origem < self->tamanho);
     assert(nó_destino >= 0 && nó_destino < self->tamanho);
 
-    memcpy(self->arestas[nó_destino][nó_origem], p_dado, self->tamanho_aresta);
+    void **posicao = &self->arestas[nó_origem][nó_destino];
+
+    if (p_dado == NULL) {
+        free(*posicao);
+        *posicao = NULL;
+        return;
+    }
+
+    if (*posicao == NULL) {
+        *posicao = malloc(self->tamanho_aresta);
+        assert(*posicao != NULL);
+    }
+
+    memcpy(*posicao, p_dado, self->tamanho_aresta);
 }
 
 void *g_valor_da_aresta(Grafo self, int nó_origem, int nó_destino)
