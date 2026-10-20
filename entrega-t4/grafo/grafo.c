@@ -190,3 +190,67 @@ int g_num_nós(Grafo self)
     
     return self->tamanho;
 }
+
+void g_altera_valor_da_aresta(Grafo self, int nó_origem, int nó_destino, void *p_dado)
+{
+    g_ok(self);
+    assert(nó_origem >= 0 && nó_origem < self->tamanho);
+    assert(nó_destino >= 0 && nó_destino < self->tamanho);
+
+    memcpy(self->arestas[nó_destino][nó_origem], p_dado, self->tamanho_aresta);
+}
+
+void *g_valor_da_aresta(Grafo self, int nó_origem, int nó_destino)
+{
+    g_ok(self);
+    assert(nó_origem >= 0 && nó_origem < self->tamanho);
+    assert(nó_destino >= 0 && nó_destino < self->tamanho);
+
+    return self->arestas[nó_origem][nó_destino];
+}
+
+void g_arestas_que_partem(Grafo self, int nó_origem)
+{
+    g_ok(self);
+    assert(nó_origem >= 0 && nó_origem < self->tamanho);
+
+    self->consulta.no = nó_origem;
+    self->consulta.posicao = 0;
+    self->consulta.tipo = CONSULTA_ARESTAS_QUE_PARTEM;
+}
+
+void g_arestas_que_chegam(Grafo self, int nó_destino)
+{
+    g_ok(self);
+    assert(nó_destino >= 0 && nó_destino < self->tamanho);
+
+    self->consulta.no = nó_destino;
+    self->consulta.posicao = 0;
+    self->consulta.tipo = CONSULTA_ARESTAS_QUE_CHEGAM;
+}
+
+void *g_próxima_aresta(Grafo self, int *p_nó_vizinho)
+{
+    g_ok(self);
+
+    if (self->consulta.tipo == CONSULTA_NAO_INICIADA) return NULL;
+
+    while (self->consulta.posicao < self->tamanho) {
+        int vizinho = self->consulta.posicao;
+        self->consulta.posicao++;
+
+        void *aresta;
+        if (self->consulta.tipo == CONSULTA_ARESTAS_QUE_PARTEM) {
+            aresta = self->arestas[self->consulta.no][vizinho];
+        } else {
+            aresta = self->arestas[vizinho][self->consulta.no];
+        }
+
+        if (aresta != NULL) {
+            if (p_nó_vizinho != NULL) *p_nó_vizinho = vizinho;
+            return aresta;
+        }
+    }
+
+    return NULL;
+}
