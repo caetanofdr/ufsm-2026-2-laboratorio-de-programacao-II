@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include <stdbool.h>
 
 typedef enum
 {
@@ -10,6 +11,13 @@ typedef enum
     CONSULTA_ARESTAS_QUE_PARTEM,
     CONSULTA_ARESTAS_QUE_CHEGAM
 } TipoConsulta;
+
+typedef enum
+{
+    ESTADO_VISITADO,
+    ESTADO_EM_VISITA,
+    ESTADO_NAO_VISITADO
+} EstadoVisita;
 
 struct consulta
 {
@@ -266,4 +274,90 @@ void *g_próxima_aresta(Grafo self, int *p_nó_vizinho)
     }
 
     return NULL;
+}
+
+static bool g_acha_ciclo(Grafo self, EstadoVisita visitas[], int nó)
+{
+    if (visitas[nó] == ESTADO_EM_VISITA) return true;
+    if (visitas[nó] == ESTADO_VISITADO) return false;
+
+    visitas[nó] = ESTADO_EM_VISITA;
+
+    for (int i = 0; i < self->tamanho; i++) {
+        if (self->arestas[nó][i] == NULL) continue;
+
+        if (g_acha_ciclo(self, visitas, i)) return true;
+    }
+
+    visitas[nó] = ESTADO_VISITADO;
+    return false;
+}
+
+bool g_tem_ciclo(Grafo self)
+{
+    g_ok(self);
+    if (self->tamanho == 0) return false;
+
+    EstadoVisita visitas[self->tamanho];
+    for (int i = 0; i < self->tamanho; i++) visitas[i] = ESTADO_NAO_VISITADO;
+
+    for (int i = 0; i < self->tamanho; i++) {
+        if (visitas[i] == ESTADO_VISITADO) continue;
+        if (g_acha_ciclo(self, visitas, i)) return true;
+    }
+
+    return false;
+}
+
+static int *g_calcula_grau_entrada(Grafo self)
+{
+    g_ok(self);
+    if (self->tamanho < 1) return NULL;
+
+    int *vet = calloc(self->tamanho, sizeof(int));
+    if (vet == NULL) return NULL;
+
+    for (int i = 0; i < self->tamanho; i++) {
+        for (int j = 0; j < self->tamanho; j++) {
+            if (self->arestas[j][i] == NULL) continue;
+            vet[i]++;
+        }
+    }
+
+    return vet;
+}
+
+Fila g_ordem_topológica(Grafo self)
+{
+    g_ok(self);
+
+    Fila ordem = f_cria(sizeof(int));
+    if (g_tem_ciclo(self)) return ordem;
+
+    int *grau = g_calcula_grau_entrada(self);
+    if (grau == NULL) return ordem;
+
+    Fila prontos = f_cria(sizeof(int));
+
+    for (int i = 0; i < self->tamanho; i++) {
+        if (grau[i] == 0) f_insere(prontos, &i);
+    }
+
+    while (!f_tá_vazia(prontos)) {
+        int nó;
+        f_remove(prontos, &nó);
+        f_insere(ordem, &nó);
+
+        for (int i = 0; i < self->tamanho; i++) {
+            if (self->arestas[nó][i] == NULL) continue;
+
+            grau[i]--;
+            if (grau[i] == 0) f_insere(prontos, &i);
+        }
+    }
+
+    f_destrói(prontos);
+    free(grau);
+
+    return ordem;
 }
