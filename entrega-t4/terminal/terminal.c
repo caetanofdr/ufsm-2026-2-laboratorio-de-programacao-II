@@ -77,6 +77,15 @@ char t_lê_tecla()
   fflush(stdout);
   // lê um caractere e retorna
   char c;
+  // ======================================================================
+  // ALTERAÇÃO NO CÓDIGO DO PROFESSOR
+  // -----------------------------------------
+  // Tive que adicionar essa linha:
+  // "clearerr(stdin);"
+  // Sem ela o jogo termina quase instantaneamente
+  // no macOS.
+  // ======================================================================
+  clearerr(stdin);
   if (fread(&c, 1, 1, stdin) == 1) return c;
   // se a leitura não deu certo, retorna 0
   return 0;
