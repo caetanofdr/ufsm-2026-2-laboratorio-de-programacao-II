@@ -82,13 +82,15 @@ typedef struct Partida {
 
     unsigned int pontuacao;
     unsigned int ondasFinalizadas;
+    unsigned char entrouTop3;
+    unsigned char desistiu;
 
     int campoAtaquesDiurnos[13];
     int campoAtaquesNoturnos[8];
 } Partida;
 
 typedef struct Programa {
-    char estado;
+    int estado;
     Partida partidaAtual;
     unsigned int placar[3];
 } Programa;
@@ -102,6 +104,7 @@ typedef struct timespec crono;
 void configura_terminal();
 void normaliza_terminal();
 char lechar();
+char lerTecla();
 void crono_inicia(crono *c);
 double crono_parcial(crono *c);
 
@@ -110,7 +113,7 @@ double crono_parcial(crono *c);
 void lerArquivoPlacar(Programa *programa);
 void gravarMelhoresPontuacoes(Programa *programa);
 void ordenarPlacar(Programa *programa);
-void atualizarPlacar(Programa *programa);
+int atualizarPlacar(Programa *programa);
 int pontuacaoEntrouTop3(Programa *programa);
 
 // funções gerais do programa
@@ -244,6 +247,20 @@ double crono_parcial(crono *c)
     return segundos + 1e-9 * nanosegundos;
 }
 
+char lerTecla()
+{
+    char c = lechar();
+    if (c != 27) return c;
+
+    char proximo = lechar();
+    if (proximo == '[' || proximo == 'O') {
+        lechar();
+        return 0;
+    }
+
+    return c;
+}
+
 // funções do placar
 
 void lerArquivoPlacar(Programa *programa)
@@ -284,11 +301,11 @@ void ordenarPlacar(Programa *programa)
     }
 }
 
-void atualizarPlacar(Programa *programa)
+int atualizarPlacar(Programa *programa)
 {
     unsigned int pontuacao = programa->partidaAtual.pontuacao;
 
-    if (pontuacao <= programa->placar[2]) return;
+    if (pontuacao <= programa->placar[2]) return 0;
 
     int i = 2;
     while (i > 0 && programa->placar[i - 1] < pontuacao) {
@@ -297,17 +314,12 @@ void atualizarPlacar(Programa *programa)
     }
 
     programa->placar[i] = pontuacao;
+    return 1;
 }
 
 int pontuacaoEntrouTop3(Programa *programa)
 {
-    unsigned int pontuacao = programa->partidaAtual.pontuacao;
-
-    for (int i = 0; i < 3; i++) {
-        if (programa->placar[i] == pontuacao) return 1;
-    }
-
-    return 0;
+    return programa->partidaAtual.entrouTop3;
 }
 
 // funções gerais do programa
@@ -350,7 +362,7 @@ void menuPrincipal(Programa *programa)
     desenharMenuPrincipal();
 
     while (1) {
-        char tecla = lechar();
+        char tecla = lerTecla();
         if (tecla == 0) continue;
 
         if (tecla == 27) {
@@ -386,7 +398,7 @@ void melhoresPontuacoes(Programa *programa)
     desenharMelhoresPontuacoes(programa);
 
     while (1) {
-        char tecla = lechar();
+        char tecla = lerTecla();
         if (tecla == 0) continue;
 
         if (tecla == 27) {
@@ -406,6 +418,8 @@ void iniciarNovaPartida(Programa *programa)
     programa->partidaAtual.armaAtual = 0;
     programa->partidaAtual.pontuacao = 0;
     programa->partidaAtual.ondasFinalizadas = 0;
+    programa->partidaAtual.entrouTop3 = 0;
+    programa->partidaAtual.desistiu = 0;
 
     programa->estado = ESTADO_ONDA_SORTEAR;
 }
@@ -418,9 +432,9 @@ int sorteouDiurna(Programa *programa)
     int sorteio = rand() % 100;
 
     if (sorteio < probabilidadeDiurna) {
-        return ONDA_NOTURNA;
+        return 1;
     } else {
-        return ONDA_DIURNA;
+        return 0;
     }
 }
 
@@ -466,7 +480,7 @@ void fimOnda(Programa *programa)
     desenharFimOnda(programa);
 
     while (1) {
-        char tecla = lechar();
+        char tecla = lerTecla();
         if (tecla == 0) continue;
 
         if (tecla == 27) {
@@ -488,7 +502,11 @@ void fimOnda(Programa *programa)
 void desenharFimPartida(Programa *programa)
 {
     system("clear");
-    printf("Fim de jogo! Você foi derrotado.\n");
+    if (programa->partidaAtual.desistiu) {
+        printf("Fim de jogo! Você desistiu da partida.\n");
+    } else {
+        printf("Fim de jogo! Você foi derrotado.\n");
+    }
     printf("Pontuação final: %d\n", programa->partidaAtual.pontuacao);
     printf("Ondas concluídas: %d\n", programa->partidaAtual.ondasFinalizadas);
 
@@ -503,12 +521,13 @@ void desenharFimPartida(Programa *programa)
 
 void fimPartida(Programa *programa)
 {
-    atualizarPlacar(programa);
+    programa->partidaAtual.entrouTop3 = atualizarPlacar(programa);
+    gravarMelhoresPontuacoes(programa);
     tocaSom(SOM_INIMIGO_NAVE);
     desenharFimPartida(programa);
 
     while (1) {
-        char tecla = lechar();
+        char tecla = lerTecla();
         if (tecla == 0) continue;
 
         if (tecla == 27) {
@@ -545,7 +564,7 @@ void desenhaDadosDiurno(Programa *programa)
             programa->partidaAtual.municao,
             programa->partidaAtual.armaAtual);
     } else if (programa->partidaAtual.armaAtual == ARMA_N) {
-        printf("%3d %2d n",
+        printf("%3d %2d  n",
             programa->partidaAtual.pontuacao,
             programa->partidaAtual.municao
         );
@@ -685,7 +704,8 @@ void destruirEscudo(Programa *programa, int i)
 
 void atualizarCampoDiurno(Programa *programa)
 {
-    int atacanteQueSai = programa->partidaAtual.campoAtaquesDiurnos[3];
+    int frente = programa->partidaAtual.quantidadeEscudos;
+    int atacanteQueSai = programa->partidaAtual.campoAtaquesDiurnos[frente];
 
     if (atacanteQueSai != VAZIO) {
         int indiceEscudo = indexEscudoParaDestruir(programa);
@@ -694,10 +714,11 @@ void atualizarCampoDiurno(Programa *programa)
             destruirEscudo(programa, indiceEscudo);
         } else {
             programa->estado = ESTADO_FIM_PARTIDA;
+            return;
         }
     }
 
-    for (int i = 4; i < 13; i++) {
+    for (int i = frente + 1; i < 13; i++) {
         programa->partidaAtual.campoAtaquesDiurnos[i - 1] = programa->partidaAtual.campoAtaquesDiurnos[i];
     }
 
@@ -716,6 +737,7 @@ void processarComandoDiurno(Programa *programa, char tecla)
         break;
 
     case 27:
+        programa->partidaAtual.desistiu = 1;
         programa->estado = ESTADO_FIM_PARTIDA;
         break;
 
@@ -755,8 +777,9 @@ int ondaDiurnaTerminou(Programa *programa)
 {
     if (programa->partidaAtual.ataquesInativos > 0) return 0;
 
-    for (int i = 3; i < 13; i++) {
-        if (programa->partidaAtual.campoAtaquesDiurnos[i] != VAZIO) return 0;
+    for (int i = 0; i < 13; i++) {
+        int tipo = programa->partidaAtual.campoAtaquesDiurnos[i];
+        if (tipo != VAZIO && tipo != ESCUDO) return 0;
     }
 
     return 1;
@@ -811,7 +834,7 @@ void ondaDiurna(Programa *programa)
             return;
         }
 
-        char tecla = lechar();
+        char tecla = lerTecla();
         if (tecla != 0) {
             processarComandoDiurno(programa, tecla);
             if (programa->estado == ESTADO_FIM_PARTIDA) return;
@@ -951,7 +974,8 @@ void destruirEscudoNoturno(Programa *programa, int i)
 
 void atualizarCampoNoturno(Programa *programa)
 {
-    int atacanteQueSai = programa->partidaAtual.campoAtaquesNoturnos[3];
+    int frente = programa->partidaAtual.quantidadeEscudos;
+    int atacanteQueSai = programa->partidaAtual.campoAtaquesNoturnos[frente];
 
     if (atacanteQueSai != VAZIO) {
         int indiceEscudo = indexEscudoParaDestruirNoturno(programa);
@@ -960,10 +984,11 @@ void atualizarCampoNoturno(Programa *programa)
             destruirEscudoNoturno(programa, indiceEscudo);
         } else {
             programa->estado = ESTADO_FIM_PARTIDA;
+            return;
         }
     }
 
-    for (int i = 4; i < 8; i++) {
+    for (int i = frente + 1; i < 8; i++) {
         programa->partidaAtual.campoAtaquesNoturnos[i - 1] =
             programa->partidaAtual.campoAtaquesNoturnos[i];
     }
@@ -983,6 +1008,7 @@ void processarComandoNoturno(Programa *programa, char tecla)
         break;
 
     case 27:
+        programa->partidaAtual.desistiu = 1;
         programa->estado = ESTADO_FIM_PARTIDA;
         break;
 
@@ -1023,8 +1049,9 @@ int ondaNoturnaTerminou(Programa *programa)
 {
     if (programa->partidaAtual.ataquesInativos > 0) return 0;
 
-    for (int i = 3; i < 8; i++) {
-        if (programa->partidaAtual.campoAtaquesNoturnos[i] != VAZIO) {
+    for (int i = 0; i < 8; i++) {
+        int tipo = programa->partidaAtual.campoAtaquesNoturnos[i];
+        if (tipo != VAZIO && tipo != ESCUDO) {
             return 0;
         }
     }
@@ -1080,7 +1107,7 @@ void ondaNoturna(Programa *programa)
             return;
         }
 
-        char tecla = lechar();
+        char tecla = lerTecla();
         if (tecla != 0) {
             processarComandoNoturno(programa, tecla);
             if (programa->estado == ESTADO_FIM_PARTIDA) return;
