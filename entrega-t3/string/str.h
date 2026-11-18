@@ -228,4 +228,3 @@ void s_grava_arquivo(Str_c s, char *nome);
 
 #endif // _STR_H_
 // vim: foldmethod=marker shiftwidth=2
-

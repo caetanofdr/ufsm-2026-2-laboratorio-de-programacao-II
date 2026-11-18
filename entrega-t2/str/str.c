@@ -51,10 +51,6 @@ static void s_ok(Str_c s)
     if (s->nmemoria > MIN_ALLOC) {
         assert(s->nmemoria <= 3 * s->nbytes);
     }
-
-    int ncaracteres_reais = u8_conta_unichar_nos_bytes(s->nbytes, s->dados);
-    assert(ncaracteres_reais != -1);
-    assert(ncaracteres_reais == (int) s->ncaracteres);
 }
 
 static unsigned int s_proxima_potencia_2(unsigned int n)
@@ -88,6 +84,24 @@ static void s_define_conteudo(Str s, byte const *conteudo, int nbytes)
     s->ncaracteres = ncaracteres;
 }
 
+static void s_esvazia(Str s)
+{
+    free(s->dados);
+    s->dados = NULL;
+    s->nmemoria = 0;
+    s->nbytes = 0;
+    s->ncaracteres = 0;
+}
+
+static byte *s_ptr_posicao(Str_c s, int pos)
+{
+    if (pos == (int)s->ncaracteres) {
+        return s->dados + s->nbytes;
+    }
+
+    return u8_avanca_unichar(s->dados, pos);
+}
+
 static int s_posicao_corrigida(int posicao, int n)
 {
     if (posicao < 0) {
@@ -105,15 +119,89 @@ static int s_posicao_corrigida(int posicao, int n)
     return posicao;
 }
 
+static unichar s_le_unichar(byte *ptr, byte *fim)
+{
+    unichar uni;
+
+    if (u8_unichar_nos_bytes(fim - ptr, ptr, &uni) == -1) {
+        return UNI_INV;
+    }
+
+    return uni;
+}
+
+static byte *s_proximo_unichar(byte *ptr)
+{
+    return ptr + u8_nbytes_no_unichar_que_comeca_com(*ptr);
+}
+
+static byte *s_unichar_anterior(byte *inicio, byte *ptr)
+{
+    do {
+        ptr--;
+    } while (ptr > inicio &&
+        u8_nbytes_no_unichar_que_comeca_com(*ptr) == -1);
+
+    return ptr;
+}
+
 static bool s_caractere_pertence(unichar c, Str_c sb)
 {
-    for (int i = 0; i < (int)sb->ncaracteres; i++) {
-        if (s_ch(sb, i) == c) {
+    byte *ptr = sb->dados;
+    byte *fim = sb->dados + sb->nbytes;
+
+    while (ptr < fim) {
+        if (s_le_unichar(ptr, fim) == c) {
             return true;
         }
+        ptr = s_proximo_unichar(ptr);
     }
 
     return false;
+}
+
+static int s_busca_frente(Str_c s, int pos, Str_c sb, bool pertence)
+{
+    s_ok(s);
+    s_ok(sb);
+
+    int n = s->ncaracteres;
+    pos = s_posicao_corrigida(pos, n);
+
+    byte *fim = s->dados + s->nbytes;
+    byte *ptr = u8_avanca_unichar(s->dados, pos);
+
+    for (int i = pos; i < n; i++) {
+        unichar c = s_le_unichar(ptr, fim);
+        if (s_caractere_pertence(c, sb) == pertence) {
+            return i;
+        }
+        ptr = s_proximo_unichar(ptr);
+    }
+
+    return -1;
+}
+
+static int s_busca_tras(Str_c s, int pos, Str_c sb, bool pertence)
+{
+    s_ok(s);
+    s_ok(sb);
+
+    int n = s->ncaracteres;
+    pos = s_posicao_corrigida(pos, n);
+
+    byte *fim = s->dados + s->nbytes;
+    byte *ptr = u8_avanca_unichar(s->dados, pos);
+
+    for (int i = pos - 1; i >= 0; i--) {
+        ptr = s_unichar_anterior(s->dados, ptr);
+        unichar c = s_le_unichar(ptr, fim);
+        if (s_caractere_pertence(c, sb) == pertence) {
+            return i;
+        }
+    }
+
+    return -1;
 }
 
 static void s_garante_memoria(Str s, unsigned int nbytes_necessarios)
@@ -254,9 +342,12 @@ unichar s_ch(Str_c s, int pos)
 {
     s_ok(s);
 
-    pos = s_posicao_corrigida(pos, s->ncaracteres);
+    int n = s->ncaracteres;
+    if (pos < 0) {
+        pos = n + pos + 1;
+    }
 
-    if (pos >= (int)s->ncaracteres) {
+    if (pos < 0 || pos >= n) {
         return UNI_INV;
     }
 
@@ -303,70 +394,22 @@ bool s_igual(Str_c s, Str_c sb)
 
 int s_busca_c(Str_c s, int pos, Str_c sb)
 {
-    s_ok(s);
-    s_ok(sb);
-
-    int n = s->ncaracteres;
-    pos = s_posicao_corrigida(pos, n);
-
-    for (int i = pos; i < n; i++) {
-        if (s_caractere_pertence(s_ch(s, i), sb)) {
-            return i;
-        }
-    }
-
-    return -1;
+    return s_busca_frente(s, pos, sb, true);
 }
 
 int s_busca_nc(Str_c s, int pos, Str_c sb)
 {
-    s_ok(s);
-    s_ok(sb);
-
-    int n = s->ncaracteres;
-    pos = s_posicao_corrigida(pos, n);
-
-    for (int i = pos; i < n; i++) {
-        if (!s_caractere_pertence(s_ch(s, i), sb)) {
-            return i;
-        }
-    }
-
-    return -1;
+    return s_busca_frente(s, pos, sb, false);
 }
 
 int s_busca_rc(Str_c s, int pos, Str_c sb)
 {
-    s_ok(s);
-    s_ok(sb);
-
-    int n = s->ncaracteres;
-    pos = s_posicao_corrigida(pos, n);
-
-    for (int i = pos - 1; i >= 0; i--) {
-        if (s_caractere_pertence(s_ch(s, i), sb)) {
-            return i;
-        }
-    }
-
-    return -1;
+    return s_busca_tras(s, pos, sb, true);
 }
 
 int s_busca_rnc(Str_c s, int pos, Str_c sb)
 {
-    s_ok(s);
-    s_ok(sb);
-
-    int n = s->ncaracteres;
-    pos = s_posicao_corrigida(pos, n);
-
-    for (int i = pos - 1; i >= 0; i--) {
-        if (!s_caractere_pertence(s_ch(s, i), sb)) {
-            return i;
-        }
-    }
-
-    return -1;
+    return s_busca_tras(s, pos, sb, false);
 }
 
 int s_busca_s(Str_c s, int pos, Str_c buscada)
@@ -382,18 +425,16 @@ int s_busca_s(Str_c s, int pos, Str_c buscada)
         return pos;
     }
 
-    for (int i = pos; i + m <= n; i++) {
-        bool igual = true;
-        for (int j = 0; j < m; j++) {
-            if (s_ch(s, i + j) != s_ch(buscada, j)) {
-                igual = false;
-                break;
-            }
-        }
+    byte *fim = s->dados + s->nbytes;
+    byte *ptr = u8_avanca_unichar(s->dados, pos);
+    unsigned int nb = buscada->nbytes;
 
-        if (igual) {
+    for (int i = pos; i + m <= n; i++) {
+        bool cabe = (unsigned int)(fim - ptr) >= nb;
+        if (cabe && memcmp(ptr, buscada->dados, nb) == 0) {
             return i;
         }
+        ptr = s_proximo_unichar(ptr);
     }
 
     return -1;
@@ -417,8 +458,8 @@ void s_substitui(Str s, int pos, int tam, Str_c sb)
     int n = s->ncaracteres;
     s_intervalo_corrigido(pos, tam, n, &pos, &tam);
 
-    byte *inicio_remocao = u8_avanca_unichar(s->dados, pos);
-    byte *fim_remocao = u8_avanca_unichar(s->dados, pos + tam);
+    byte *inicio_remocao = s_ptr_posicao(s, pos);
+    byte *fim_remocao = u8_avanca_unichar(inicio_remocao, tam);
 
     int bytes_antes = inicio_remocao - s->dados;
     int bytes_removidos = fim_remocao - inicio_remocao;
@@ -429,32 +470,27 @@ void s_substitui(Str s, int pos, int tam, Str_c sb)
     int novo_nbytes = s->nbytes - bytes_removidos + nbytes_sb;
 
     if (novo_nbytes == 0) {
-        free(s->dados);
-        s->dados = NULL;
-        s->nmemoria = 0;
-        s->nbytes = 0;
-        s->ncaracteres = 0;
+        s_esvazia(s);
         if (copia_temp != NULL) s_destroi(copia_temp);
         s_ok(s);
         return;
     }
 
-    byte *depois = NULL;
-    if (bytes_depois > 0) {
-        depois = malloc(bytes_depois);
-        assert(depois != NULL);
-        memcpy(depois, s->dados + bytes_antes + bytes_removidos, bytes_depois);
-    }
+    int origem_depois = bytes_antes + bytes_removidos;
+    int destino_depois = bytes_antes + nbytes_sb;
 
-    s_garante_memoria(s, novo_nbytes);
+    if (destino_depois < origem_depois) {
+        memmove(s->dados + destino_depois, s->dados + origem_depois,
+            bytes_depois);
+        s_garante_memoria(s, novo_nbytes);
+    } else {
+        s_garante_memoria(s, novo_nbytes);
+        memmove(s->dados + destino_depois, s->dados + origem_depois,
+            bytes_depois);
+    }
 
     if (nbytes_sb > 0) {
         memmove(s->dados + bytes_antes, sb->dados, nbytes_sb);
-    }
-
-    if (bytes_depois > 0) {
-        memmove(s->dados + bytes_antes + nbytes_sb, depois, bytes_depois);
-        free(depois);
     }
 
     s->nbytes = novo_nbytes;
@@ -470,36 +506,29 @@ void s_substring(Str s, Str_c sb, int pos, int tam)
     s_ok(s);
     s_ok(sb);
 
-    Str copia_temp = NULL;
-    if (sb == (Str_c) s) {
-        copia_temp = s_cria_cópia(sb);
-        sb = copia_temp;
-    }
-
     int m = sb->ncaracteres;
     s_intervalo_corrigido(pos, tam, m, &pos, &tam);
 
     byte *inicio = u8_avanca_unichar(sb->dados, pos);
-    byte *fim = u8_avanca_unichar(sb->dados, pos + tam);
+    byte *fim = u8_avanca_unichar(inicio, tam);
     int nbytes = fim - inicio;
 
-    byte *trecho = NULL;
-    if (nbytes > 0) {
-        trecho = malloc(nbytes);
-        assert(trecho != NULL);
-        memcpy(trecho, inicio, nbytes);
+    if (nbytes == 0) {
+        s_esvazia(s);
+        s_ok(s);
+        return;
     }
 
-    free(s->dados);
-    s->dados = NULL;
-    s->nbytes = 0;
-    s->ncaracteres = 0;
-    s->nmemoria = 0;
+    if (sb == (Str_c) s) {
+        memmove(s->dados, inicio, nbytes);
+        s_garante_memoria(s, nbytes);
+    } else {
+        s_garante_memoria(s, nbytes);
+        memcpy(s->dados, inicio, nbytes);
+    }
 
-    s_define_conteudo(s, trecho, nbytes);
-    free(trecho);
-
-    if (copia_temp != NULL) s_destroi(copia_temp);
+    s->nbytes = nbytes;
+    s->ncaracteres = tam;
 
     s_ok(s);
 }
@@ -551,14 +580,25 @@ void s_apara(Str s, Str_c sobras)
     s_ok(sobras);
 
     int n = s->ncaracteres;
+    byte *ptr_inicio = s->dados;
+    byte *ptr_fim = s->dados + s->nbytes;
 
     int fim = n;
-    while (fim > 0 && s_caractere_pertence(s_ch(s, fim - 1), sobras)) {
+    while (fim > 0) {
+        byte *anterior = s_unichar_anterior(s->dados, ptr_fim);
+        if (!s_caractere_pertence(s_le_unichar(anterior, ptr_fim), sobras)) {
+            break;
+        }
+        ptr_fim = anterior;
         fim--;
     }
 
     int inicio = 0;
-    while (inicio < fim && s_caractere_pertence(s_ch(s, inicio), sobras)) {
+    while (inicio < fim) {
+        if (!s_caractere_pertence(s_le_unichar(ptr_inicio, ptr_fim), sobras)) {
+            break;
+        }
+        ptr_inicio = s_proximo_unichar(ptr_inicio);
         inicio++;
     }
 

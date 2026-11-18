@@ -97,6 +97,7 @@ static const acao_t tabela[8][8] = {
 static bool str_menor(chave_t a, chave_t b);
 static bool str_igual(chave_t a, chave_t b);
 static bool eh_numero(unichar c);
+static bool numero_valido(Str token);
 static bool eh_letra(unichar c);
 static bool eh_operando(unichar c);
 static bool eh_operador(unichar c);
@@ -140,6 +141,22 @@ static bool eh_numero(unichar c)
     return 
         (c >= '0' && c <= '9') || 
         (c == '.');
+}
+
+static bool numero_valido(Str token)
+{
+    int pontos = 0;
+    int digitos = 0;
+
+    for (int i = 0; i < s_tam(token); i++) {
+        if (s_ch(token, i) == '.') {
+            pontos++;
+        } else {
+            digitos++;
+        }
+    }
+
+    return pontos <= 1 && digitos >= 1;
 }
 
 static bool eh_letra(unichar c)
@@ -372,7 +389,10 @@ Str calculadora(Str expressão)
         }
 
         if (coluna == CAT_OPERANDO) {
-            if (eh_numero(s_ch(token_atual, 0)) && !isfinite(s_número(token_atual))) {
+            bool eh_num = eh_numero(s_ch(token_atual, 0));
+            bool invalido = !numero_valido(token_atual) || !isfinite(s_número(token_atual));
+
+            if (eh_num && invalido) {
                 liberar_memoria_calculadora(pilha_operadores, pilha_operandos, lista_tokens);
                 return s_cria("#ERRO número inválido");
             }

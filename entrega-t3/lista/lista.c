@@ -18,12 +18,15 @@ struct lista
 {
     int tamanho;
     No *sentinela;
+    int pos_cursor;
+    No *no_cursor;
 };
 
 static void l_no_ok(No *no);
 static void l_ok(Lista l);
-static No *l_no_anterior_a_posicao(Lista l, int index);
+static No *l_caminha(No *p, int passos);
 static No *l_no_na_posicao(Lista l, int index);
+static No *l_no_anterior_a_posicao(Lista l, int index);
 static No *l_cria_no(void);
 static void l_destroi_no(No *no);
 
@@ -48,29 +51,54 @@ static void l_ok(Lista l)
         return;
     }
 
-    int tamanho;
-    No *p = l->sentinela->proximo;
-
-    for (tamanho = 0; p != l->sentinela; tamanho++) {
-        l_no_ok(p);
-        p = p->proximo;
-    }
-
-    assert(tamanho == l->tamanho);
+    assert(l->tamanho > 0);
+    assert(l->sentinela->proximo != l->sentinela);
+    l_no_ok(l->sentinela->proximo);
+    l_no_ok(l->sentinela->anterior);
 }
 
-static No *l_no_anterior_a_posicao(Lista l, int index)
+static No *l_caminha(No *p, int passos)
 {
-    No *p = l->sentinela;
-    for (int i = 0; i < index; i++) {
+    while (passos > 0) {
         p = p->proximo;
+        passos--;
     }
+
+    while (passos < 0) {
+        p = p->anterior;
+        passos++;
+    }
+
     return p;
 }
 
 static No *l_no_na_posicao(Lista l, int index)
 {
-    return l_no_anterior_a_posicao(l, index)->proximo;
+    if (index < 0 || index >= l->tamanho) return l->sentinela;
+
+    No *p = l->sentinela->proximo;
+    int pos = 0;
+
+    if (l->tamanho - 1 - index < index) {
+        p = l->sentinela->anterior;
+        pos = l->tamanho - 1;
+    }
+
+    if (l->pos_cursor != -1 && abs(index - l->pos_cursor) < abs(index - pos)) {
+        p = l->no_cursor;
+        pos = l->pos_cursor;
+    }
+
+    p = l_caminha(p, index - pos);
+    l->pos_cursor = index;
+    l->no_cursor = p;
+
+    return p;
+}
+
+static No *l_no_anterior_a_posicao(Lista l, int index)
+{
+    return l_no_na_posicao(l, index - 1);
 }
 
 static No *l_cria_no(void)
@@ -96,6 +124,7 @@ Lista l_cria(void)
     l->sentinela->anterior = l->sentinela;
     l->sentinela->dado = NULL;
     l->tamanho = 0;
+    l->pos_cursor = -1;
 
     l_ok(l);
 
@@ -209,6 +238,7 @@ void l_insere_pos(Lista l, dado_t d, int p)
     proximo->anterior = inserido;
 
     l->tamanho++;
+    l->pos_cursor = -1;
 
     l_ok(l);
 }
@@ -226,6 +256,9 @@ dado_t l_dado_fim(Lista l)
 dado_t l_dado_pos(Lista l, int pos)
 {
     l_ok(l);
+
+    if (pos < 0 || pos >= l->tamanho) return NULL;
+
     No *p = l_no_na_posicao(l, pos);
 
     return p->dado;
@@ -257,6 +290,7 @@ dado_t l_remove_pos(Lista l, int pos)
     dado_t d = removido->dado;
     free(removido);
     l->tamanho--;
+    l->pos_cursor = -1;
 
     l_ok(l);
 

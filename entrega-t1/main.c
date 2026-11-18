@@ -169,6 +169,7 @@ int ondaDiurnaTerminou(Programa *programa);
 void pontuarFimOndaDiurna(Programa *programa);
 double calcularIntervaloMovimentoDiruno(Programa *programa);
 void iniciarOndaDiurna(Programa *programa);
+int processarTempoDiurno(Programa *programa, crono *cronometro);
 void ondaDiurna(Programa *programa);
 
 // funções da onda noturna
@@ -191,6 +192,7 @@ int ondaNoturnaTerminou(Programa *programa);
 void pontuarFimOndaNoturna(Programa *programa);
 double calcularIntervaloMovimentoNoturno(Programa *programa);
 void iniciarOndaNoturna(Programa *programa);
+int processarTempoNoturno(Programa *programa, crono *cronometro);
 void ondaNoturna(Programa *programa);
 
 // funções do som
@@ -200,10 +202,16 @@ void nomeArquivoSomTipo(int tipo, char *destino);
 void sonarDiurno(Programa *programa);
 void sonarNoturno(Programa *Programa);
 
+// funções da main
+
+void executarEstado(Programa *programa);
+void executarEstadoOnda(Programa *programa);
+
 // funções
 
 // funções de terminal e temporização
 
+// coloca o terminal em modo cru para ler cada tecla sem esperar enter
 void configura_terminal()
 {
     if (system("stty raw opost -echo min 0 time 1") != 0) {
@@ -218,26 +226,29 @@ void configura_terminal()
     }
 }
 
+// devolve o terminal ao modo normal
 void normaliza_terminal()
 {
     system("stty sane");
 }
 
+// lê um caractere do teclado; retorna 0 se nada foi digitado
 char lechar()
 {
     fflush(stdout);
     clearerr(stdin); // coloquei isso aqui pois sem nao roda no meu pc
     char c;
-    if (fread(&c, 1, 1, stdin) == 1)
-        return c;
+    if (fread(&c, 1, 1, stdin) == 1) return c;
     return 0;
 }
 
+// inicia o cronômetro com a hora atual
 void crono_inicia(crono *c)
 {
     clock_gettime(CLOCK_MONOTONIC, c);
 }
 
+// retorna os segundos passados desde o início do cronômetro
 double crono_parcial(crono *c)
 {
     crono agora;
@@ -247,8 +258,16 @@ double crono_parcial(crono *c)
     return segundos + 1e-9 * nanosegundos;
 }
 
+// lê uma tecla, descartando as sequências de escape das setas
 char lerTecla()
 {
+    static char pendente = 0;
+    if (pendente != 0) {
+        char guardada = pendente;
+        pendente = 0;
+        return guardada;
+    }
+
     char c = lechar();
     if (c != 27) return c;
 
@@ -258,11 +277,13 @@ char lerTecla()
         return 0;
     }
 
+    pendente = proximo;
     return c;
 }
 
 // funções do placar
 
+// lê as três melhores pontuações do arquivo, se ele existir
 void lerArquivoPlacar(Programa *programa)
 {
     FILE *arquivo = fopen(NOME_ARQUIVO_PLACAR, "r");
@@ -276,6 +297,7 @@ void lerArquivoPlacar(Programa *programa)
     fclose(arquivo);
 }
 
+// grava as três melhores pontuações no arquivo
 void gravarMelhoresPontuacoes(Programa *programa)
 {
     FILE *arquivo = fopen(NOME_ARQUIVO_PLACAR, "w");
@@ -288,6 +310,7 @@ void gravarMelhoresPontuacoes(Programa *programa)
     fclose(arquivo);
 }
 
+// ordena o placar em ordem decrescente
 void ordenarPlacar(Programa *programa)
 {
     for (int passada = 0; passada < 2; passada++) {
@@ -301,6 +324,8 @@ void ordenarPlacar(Programa *programa)
     }
 }
 
+// insere a pontuação da partida no placar se ela for top 3;
+// retorna 1 se entrou e 0 se não entrou
 int atualizarPlacar(Programa *programa)
 {
     unsigned int pontuacao = programa->partidaAtual.pontuacao;
@@ -317,6 +342,7 @@ int atualizarPlacar(Programa *programa)
     return 1;
 }
 
+// retorna se a pontuação da partida atual entrou no top 3
 int pontuacaoEntrouTop3(Programa *programa)
 {
     return programa->partidaAtual.entrouTop3;
@@ -324,6 +350,7 @@ int pontuacaoEntrouTop3(Programa *programa)
 
 // funções gerais do programa
 
+// configura o terminal, carrega o placar e vai para o menu
 void inicializarPrograma(Programa *programa)
 {
     configura_terminal();
@@ -339,6 +366,7 @@ void inicializarPrograma(Programa *programa)
     programa->estado = ESTADO_MENU_PRICIPAL;
 }
 
+// grava o placar e devolve o terminal ao modo normal
 void finalizarPrograma(Programa *programa)
 {
     gravarMelhoresPontuacoes(programa);
@@ -348,6 +376,7 @@ void finalizarPrograma(Programa *programa)
 
 // funções do menu principal
 
+// desenha as opções do menu principal
 void desenharMenuPrincipal()
 {
     system("clear");
@@ -357,6 +386,7 @@ void desenharMenuPrincipal()
     printf("[ESC] - Sair do Invasores do Espaço\n");
 }
 
+// mostra o menu principal e trata a opção escolhida
 void menuPrincipal(Programa *programa)
 {
     desenharMenuPrincipal();
@@ -380,6 +410,7 @@ void menuPrincipal(Programa *programa)
 
 // funções do placar de melhores pontuações
 
+// desenha a tela com as três melhores pontuações
 void desenharMelhoresPontuacoes(Programa *programa)
 {
     system("clear");
@@ -393,6 +424,7 @@ void desenharMelhoresPontuacoes(Programa *programa)
     printf("[ESC] - sair do jogo\n");
 }
 
+// mostra o placar e trata a opção escolhida
 void melhoresPontuacoes(Programa *programa)
 {
     desenharMelhoresPontuacoes(programa);
@@ -413,6 +445,7 @@ void melhoresPontuacoes(Programa *programa)
 
 // funções gerais da partida
 
+// zera os dados da partida e vai para o sorteio da onda
 void iniciarNovaPartida(Programa *programa)
 {
     programa->partidaAtual.armaAtual = 0;
@@ -424,6 +457,7 @@ void iniciarNovaPartida(Programa *programa)
     programa->estado = ESTADO_ONDA_SORTEAR;
 }
 
+// sorteia o tipo da onda; retorna 1 se for diurna
 int sorteouDiurna(Programa *programa)
 {
     int probabilidadeDiurna = 100 - (int)programa->partidaAtual.ondasFinalizadas * 20;
@@ -438,6 +472,7 @@ int sorteouDiurna(Programa *programa)
     }
 }
 
+// define se a próxima onda é diurna ou noturna
 void sortearProximaOnda(Programa *programa)
 {
     if (sorteouDiurna(programa)) {
@@ -451,6 +486,7 @@ void sortearProximaOnda(Programa *programa)
 
 // funções de fim de onda
 
+// desenha o resumo da onda que terminou
 void desenharFimOnda(Programa *programa)
 {
     system("clear");
@@ -471,9 +507,10 @@ void desenharFimOnda(Programa *programa)
 
     printf("[R] - continuar para a próxima onda\n");
     printf("[N] - reiniciar a partida do zero\n");
-    printf("[ESC] - sair do jogo\n");
+    printf("[ESC] - encerrar a partida\n");
 }
 
+// mostra o resumo da onda e trata a opção escolhida
 void fimOnda(Programa *programa)
 {
     tocaSom(SOM_ESCUDO);
@@ -484,13 +521,17 @@ void fimOnda(Programa *programa)
         if (tecla == 0) continue;
 
         if (tecla == 27) {
-            finalizarPrograma(programa);
-            exit(0);
+            programa->partidaAtual.ondasFinalizadas++;
+            programa->partidaAtual.desistiu = 1;
+            programa->estado = ESTADO_FIM_PARTIDA;
+            return;
         } else if (tecla == 'r' || tecla == 'R') {
             programa->partidaAtual.ondasFinalizadas++;
             programa->estado = ESTADO_ONDA_SORTEAR;
             return;
         } else if (tecla == 'n' || tecla == 'N') {
+            atualizarPlacar(programa);
+            gravarMelhoresPontuacoes(programa);
             iniciarNovaPartida(programa);
             return;
         }
@@ -499,6 +540,7 @@ void fimOnda(Programa *programa)
 
 // funções de fim de partida
 
+// desenha o resumo da partida e se ela entrou no top 3
 void desenharFimPartida(Programa *programa)
 {
     system("clear");
@@ -519,6 +561,7 @@ void desenharFimPartida(Programa *programa)
     printf("[ESC] - sair do jogo\n");
 }
 
+// atualiza o placar, mostra o resumo da partida e trata a opção
 void fimPartida(Programa *programa)
 {
     programa->partidaAtual.entrouTop3 = atualizarPlacar(programa);
@@ -545,6 +588,7 @@ void fimPartida(Programa *programa)
 
 // funções da onda diurna
 
+// coloca os 3 escudos e esvazia as posições do campo diurno
 void inicializarCampoAtaqueDiurno(Programa *programa)
 {
     for (int i = 0; i < 13; i++) {
@@ -556,21 +600,23 @@ void inicializarCampoAtaqueDiurno(Programa *programa)
     }
 }
 
+// desenha a pontuação, os tiros e a arma da onda diurna
 void desenhaDadosDiurno(Programa *programa)
 {
     if (programa->partidaAtual.armaAtual <= 9) {
-        printf("%3d %2d %2d",
+        printf("%3d %2d %d",
             programa->partidaAtual.pontuacao,
             programa->partidaAtual.municao,
             programa->partidaAtual.armaAtual);
     } else if (programa->partidaAtual.armaAtual == ARMA_N) {
-        printf("%3d %2d  n",
+        printf("%3d %2d n",
             programa->partidaAtual.pontuacao,
             programa->partidaAtual.municao
         );
     }
 }
 
+// desenha os escudos e os ataques do campo diurno
 void desenhaCampoDiurno(Programa *programa)
 {
     for (int i = 0; i < 13; i++) {
@@ -590,6 +636,7 @@ void desenhaCampoDiurno(Programa *programa)
     }
 }
 
+// desenha a linha de estado da onda diurna
 void desenharAtaqueDiurno(Programa *programa)
 {
     desenhaDadosDiurno(programa);
@@ -597,6 +644,7 @@ void desenharAtaqueDiurno(Programa *programa)
     printf("\033[K"); // serve para resolver um bug que caracteres comecavam a sumir
 }
 
+// troca para a próxima arma diurna e toca o som dela
 void alternarArmaDiurno(Programa *programa)
 {
     if (programa->partidaAtual.armaAtual < ARMA_N) {
@@ -610,6 +658,8 @@ void alternarArmaDiurno(Programa *programa)
     tocaSom(arquivo);
 }
 
+// diz se a arma atual destrói, converte ou erra o inimigo
+// na posição i do campo diurno
 int armaCorrespondeInimigo(Programa *programa, int i)
 {
     int arma = programa->partidaAtual.armaAtual;
@@ -630,6 +680,7 @@ int armaCorrespondeInimigo(Programa *programa, int i)
     return RESULTADO_ERROU;
 }
 
+// soma os pontos do inimigo destruído na posição i
 void pontuarInimigoDerrotadoDiurno(Programa *programa, int i, unsigned char tipo)
 {
     int pontuacao = 0;
@@ -643,6 +694,8 @@ void pontuarInimigoDerrotadoDiurno(Programa *programa, int i, unsigned char tipo
     programa->partidaAtual.pontuacao += pontuacao;
 }
 
+// acerta o inimigo mais à esquerda compatível com a arma;
+// retorna o resultado do tiro
 int derrotarInimigoDiurno(Programa *programa)
 {
     for (int i = 0; i < 13; i++) {
@@ -668,9 +721,13 @@ int derrotarInimigoDiurno(Programa *programa)
     return RESULTADO_ERROU;
 }
 
+// gasta um tiro na onda diurna e toca o som do resultado
 void atirar(Programa *programa)
 {
-    if (programa->partidaAtual.municao <= 0) return;
+    if (programa->partidaAtual.municao <= 0) {
+        tocaSom(SOM_VAZIO);
+        return;
+    }
 
     programa->partidaAtual.municao--;
 
@@ -685,6 +742,7 @@ void atirar(Programa *programa)
     }
 }
 
+// retorna a posição do escudo mais à direita, ou -1 se não houver
 int indexEscudoParaDestruir(Programa *programa)
 {
     for (int i = 2; i >= 0; i--) {
@@ -696,12 +754,15 @@ int indexEscudoParaDestruir(Programa *programa)
     return -1;
 }
 
+// destrói o escudo da posição i do campo diurno
 void destruirEscudo(Programa *programa, int i)
 {
     programa->partidaAtual.campoAtaquesDiurnos[i] = VAZIO;
     programa->partidaAtual.quantidadeEscudos--;
 }
 
+// move os ataques diurnos para a esquerda, tratando colisões
+// com escudos e com a base
 void atualizarCampoDiurno(Programa *programa)
 {
     int frente = programa->partidaAtual.quantidadeEscudos;
@@ -725,6 +786,7 @@ void atualizarCampoDiurno(Programa *programa)
     programa->partidaAtual.campoAtaquesDiurnos[12] = VAZIO;
 }
 
+// executa o comando da tecla digitada na onda diurna
 void processarComandoDiurno(Programa *programa, char tecla)
 {
     switch (tecla) {
@@ -747,6 +809,7 @@ void processarComandoDiurno(Programa *programa, char tecla)
     }
 }
 
+// sorteia o tipo de um ataque diurno
 int gerarTipoAtaqueDiurno()
 {
     int tipo = rand() % 11;
@@ -754,6 +817,7 @@ int gerarTipoAtaqueDiurno()
     return tipo;
 }
 
+// coloca um novo ataque na última posição do campo diurno
 void nascerAtaqueDiurno(Programa *programa)
 {
     if (programa->partidaAtual.ataquesInativos == 0) return;
@@ -767,12 +831,14 @@ void nascerAtaqueDiurno(Programa *programa)
     tocaSom(arquivo);
 }
 
+// executa um passo de tempo da onda diurna
 void tickOndaDiurna(Programa *programa)
 {
     atualizarCampoDiurno(programa);
     nascerAtaqueDiurno(programa);
 }
 
+// retorna 1 se não há mais ataques ativos nem inativos
 int ondaDiurnaTerminou(Programa *programa)
 {
     if (programa->partidaAtual.ataquesInativos > 0) return 0;
@@ -785,6 +851,7 @@ int ondaDiurnaTerminou(Programa *programa)
     return 1;
 }
 
+// soma os pontos de fim de onda pelos tiros e escudos restantes
 void pontuarFimOndaDiurna(Programa *programa) 
 {
     unsigned int pontuacao = programa->partidaAtual.pontuacao;
@@ -795,11 +862,13 @@ void pontuarFimOndaDiurna(Programa *programa)
     programa->partidaAtual.pontuacao = pontuacao;
 }
 
+// calcula o intervalo entre movimentos da onda diurna
 double calcularIntervaloMovimentoDiruno(Programa *programa)
 {
     return 2.0 * pow(0.9, programa->partidaAtual.ondasFinalizadas);
 }
 
+// recarrega tiros, ataques e escudos e prepara a onda diurna
 void iniciarOndaDiurna(Programa *programa)
 {
     programa->partidaAtual.armaAtual = 0;
@@ -815,6 +884,19 @@ void iniciarOndaDiurna(Programa *programa)
     inicializarCampoAtaqueDiurno(programa);
 }
 
+// executa um passo de tempo se o intervalo passou;
+// retorna 1 se a partida terminou
+int processarTempoDiurno(Programa *programa, crono *cronometro)
+{
+    double passado = crono_parcial(cronometro);
+    if (passado < programa->partidaAtual.intervaloMovimento) return 0;
+
+    tickOndaDiurna(programa);
+    crono_inicia(cronometro);
+    return programa->estado == ESTADO_FIM_PARTIDA;
+}
+
+// executa uma onda diurna até ela ou a partida terminar
 void ondaDiurna(Programa *programa)
 {
     iniciarOndaDiurna(programa);
@@ -840,16 +922,13 @@ void ondaDiurna(Programa *programa)
             if (programa->estado == ESTADO_FIM_PARTIDA) return;
         }
 
-        if (crono_parcial(&cronometro) >= programa->partidaAtual.intervaloMovimento) {
-            tickOndaDiurna(programa);
-            crono_inicia(&cronometro);
-            if (programa->estado == ESTADO_FIM_PARTIDA) return;
-        }
+        if (processarTempoDiurno(programa, &cronometro)) return;
     }
 }
 
 // funções da onda noturna
 
+// coloca os 3 escudos e esvazia as posições do campo noturno
 void inicializarCampoAtaqueNoturno(Programa *programa)
 {
     for (int i = 0; i < 8; i++) {
@@ -861,12 +940,14 @@ void inicializarCampoAtaqueNoturno(Programa *programa)
     }
 }
 
+// desenha a linha de estado da onda noturna (só a pontuação)
 void desenharAtaqueNoturno(Programa *programa)
 {
     printf("%d", programa->partidaAtual.pontuacao);
     printf("\033[K"); // serve para resolver um bug que caracteres comecavam a sumir
 }
 
+// troca para a próxima arma noturna e toca o som dela
 void alternarArmaNoturna(Programa *programa)
 {
     if (programa->partidaAtual.armaAtual < ARMA_N) {
@@ -880,6 +961,8 @@ void alternarArmaNoturna(Programa *programa)
     tocaSom(arquivo);
 }
 
+// diz se a arma atual destrói, converte ou erra o inimigo
+// na posição i do campo noturno
 int armaCorrespondeInimigoNoturno(Programa *programa, int i)
 {
     int arma = programa->partidaAtual.armaAtual;
@@ -900,6 +983,7 @@ int armaCorrespondeInimigoNoturno(Programa *programa, int i)
     return RESULTADO_ERROU;
 }
 
+// soma os pontos dobrados do inimigo destruído na posição i
 void pontuarInimigoDerrotadoNoturno(Programa *programa, int i, unsigned char tipo)
 {
     int pontuacao = 0;
@@ -913,6 +997,8 @@ void pontuarInimigoDerrotadoNoturno(Programa *programa, int i, unsigned char tip
     programa->partidaAtual.pontuacao += pontuacao;
 }
 
+// acerta o inimigo mais à esquerda compatível com a arma;
+// retorna o resultado do tiro
 int derrotarInimigoNoturno(Programa *programa)
 {
     for (int i = 0; i < 8; i++) {
@@ -938,9 +1024,13 @@ int derrotarInimigoNoturno(Programa *programa)
     return RESULTADO_ERROU;
 }
 
+// gasta um tiro na onda noturna e toca o som do resultado
 void atirarNoturno(Programa *programa)
 {
-    if (programa->partidaAtual.municao <= 0) return;
+    if (programa->partidaAtual.municao <= 0) {
+        tocaSom(SOM_VAZIO);
+        return;
+    }
 
     programa->partidaAtual.municao--;
 
@@ -955,6 +1045,7 @@ void atirarNoturno(Programa *programa)
     }
 }
 
+// retorna a posição do escudo mais à direita, ou -1 se não houver
 int indexEscudoParaDestruirNoturno(Programa *programa)
 {
     for (int i = 2; i >= 0; i--) {
@@ -966,12 +1057,15 @@ int indexEscudoParaDestruirNoturno(Programa *programa)
     return -1;
 }
 
+// destrói o escudo da posição i do campo noturno
 void destruirEscudoNoturno(Programa *programa, int i)
 {
     programa->partidaAtual.campoAtaquesNoturnos[i] = VAZIO;
     programa->partidaAtual.quantidadeEscudos--;
 }
 
+// move os ataques noturnos para a esquerda, tratando colisões
+// com escudos e com a base
 void atualizarCampoNoturno(Programa *programa)
 {
     int frente = programa->partidaAtual.quantidadeEscudos;
@@ -996,6 +1090,7 @@ void atualizarCampoNoturno(Programa *programa)
     programa->partidaAtual.campoAtaquesNoturnos[7] = VAZIO;
 }
 
+// executa o comando da tecla digitada na onda noturna
 void processarComandoNoturno(Programa *programa, char tecla)
 {
     switch (tecla) {
@@ -1018,6 +1113,7 @@ void processarComandoNoturno(Programa *programa, char tecla)
     }
 }
 
+// sorteia o tipo de um ataque noturno
 int gerarTipoAtaqueNoturno()
 {
     int tipos[5] = {0, 2, 4, 6, 8};
@@ -1026,6 +1122,7 @@ int gerarTipoAtaqueNoturno()
     return tipos[tipo];
 }
 
+// coloca um novo ataque na última posição do campo noturno
 void nascerAtaqueNoturno(Programa *programa)
 {
     if (programa->partidaAtual.ataquesInativos == 0) return;
@@ -1039,12 +1136,14 @@ void nascerAtaqueNoturno(Programa *programa)
     tocaSom(arquivo);
 }
 
+// executa um passo de tempo da onda noturna
 void tickOndaNoturna(Programa *programa)
 {
     atualizarCampoNoturno(programa);
     nascerAtaqueNoturno(programa);
 }
 
+// retorna 1 se não há mais ataques ativos nem inativos
 int ondaNoturnaTerminou(Programa *programa)
 {
     if (programa->partidaAtual.ataquesInativos > 0) return 0;
@@ -1059,6 +1158,7 @@ int ondaNoturnaTerminou(Programa *programa)
     return 1;
 }
 
+// soma os pontos dobrados de fim de onda pelos tiros e escudos
 void pontuarFimOndaNoturna(Programa *programa)
 {
     unsigned int pontuacao = programa->partidaAtual.pontuacao;
@@ -1069,11 +1169,13 @@ void pontuarFimOndaNoturna(Programa *programa)
     programa->partidaAtual.pontuacao = pontuacao;
 }
 
+// calcula o intervalo entre movimentos da onda noturna
 double calcularIntervaloMovimentoNoturno(Programa *programa)
 {
     return 6.0 * pow(0.9, programa->partidaAtual.ondasFinalizadas);
 }
 
+// recarrega tiros, ataques e escudos e prepara a onda noturna
 void iniciarOndaNoturna(Programa *programa)
 {
     programa->partidaAtual.municao = 30;
@@ -1088,6 +1190,19 @@ void iniciarOndaNoturna(Programa *programa)
     inicializarCampoAtaqueNoturno(programa);
 }
 
+// executa um passo de tempo se o intervalo passou;
+// retorna 1 se a partida terminou
+int processarTempoNoturno(Programa *programa, crono *cronometro)
+{
+    double passado = crono_parcial(cronometro);
+    if (passado < programa->partidaAtual.intervaloMovimento) return 0;
+
+    tickOndaNoturna(programa);
+    crono_inicia(cronometro);
+    return programa->estado == ESTADO_FIM_PARTIDA;
+}
+
+// executa uma onda noturna até ela ou a partida terminar
 void ondaNoturna(Programa *programa)
 {
     iniciarOndaNoturna(programa);
@@ -1113,16 +1228,13 @@ void ondaNoturna(Programa *programa)
             if (programa->estado == ESTADO_FIM_PARTIDA) return;
         }
 
-        if (crono_parcial(&cronometro) >= programa->partidaAtual.intervaloMovimento) {
-            tickOndaNoturna(programa);
-            crono_inicia(&cronometro);
-            if (programa->estado == ESTADO_FIM_PARTIDA) return;
-        }
+        if (processarTempoNoturno(programa, &cronometro)) return;
     }
 }
 
 // funções do som
 
+// toca o arquivo de som em segundo plano
 void tocaSom(char *arquivo)
 {
     char comando[10000];
@@ -1130,19 +1242,21 @@ void tocaSom(char *arquivo)
     system(comando);
 }
 
+// coloca em destino o nome do arquivo de som do tipo dado
 void nomeArquivoSomTipo(int tipo, char *destino)
 {
-    if (tipo >= 0 && tipo <= 9)
+    if (tipo >= 0 && tipo <= 9) {
         sprintf(destino, "%d.3.wav", tipo);
-    else if (tipo == NAVE_GRANDE || tipo == NAVE_PEQUENA || tipo == ARMA_N)
+    } else if (tipo == NAVE_GRANDE || tipo == NAVE_PEQUENA) {
         strcpy(destino, SOM_INIMIGO_NAVE);
-    else if (tipo == ESCUDO)
+    } else if (tipo == ESCUDO) {
         strcpy(destino, SOM_ESCUDO);
-    else if (tipo == VAZIO) {
+    } else if (tipo == VAZIO) {
         strcpy(destino, SOM_VAZIO);
     }
 }
 
+// toca em sequência o som de cada posição do campo diurno
 void sonarDiurno(Programa *programa)
 {
     char comandoCompleto[10000];
@@ -1153,16 +1267,7 @@ void sonarDiurno(Programa *programa)
         char nomeArquivo[20];
         char trecho[60];
 
-        if (valor >= 0 && valor <= 9)
-            sprintf(nomeArquivo, "%d.3.wav", valor);
-        else if (valor == NAVE_GRANDE || valor == NAVE_PEQUENA)
-            strcpy(nomeArquivo, SOM_INIMIGO_NAVE);
-        else if (valor == ESCUDO)
-            strcpy(nomeArquivo, SOM_ESCUDO);
-        else if (valor == VAZIO)
-            strcpy(nomeArquivo, SOM_VAZIO);
-        else
-            continue;
+        nomeArquivoSomTipo(valor, nomeArquivo);
 
         sprintf(trecho, "%s %s%s; ", TOCAR_SOM, PASTA_SONS, nomeArquivo);
         strcat(comandoCompleto, trecho);
@@ -1172,6 +1277,7 @@ void sonarDiurno(Programa *programa)
     system(comandoCompleto);
 }
 
+// toca em sequência o som de cada posição do campo noturno
 void sonarNoturno(Programa *programa)
 {
     char comandoCompleto[10000];
@@ -1182,16 +1288,7 @@ void sonarNoturno(Programa *programa)
         char nomeArquivo[20];
         char trecho[60];
 
-        if (valor >= 0 && valor <= 8)
-            sprintf(nomeArquivo, "%d.3.wav", valor);
-        else if (valor == NAVE_GRANDE || valor == NAVE_PEQUENA)
-            strcpy(nomeArquivo, SOM_INIMIGO_NAVE);
-        else if (valor == ESCUDO)
-            strcpy(nomeArquivo, SOM_ESCUDO);
-        else if (valor == VAZIO)
-            strcpy(nomeArquivo, SOM_VAZIO);
-        else
-            continue;
+        nomeArquivoSomTipo(valor, nomeArquivo);
 
         sprintf(trecho, "%s %s%s; ", TOCAR_SOM, PASTA_SONS, nomeArquivo);
         strcat(comandoCompleto, trecho);
@@ -1203,47 +1300,57 @@ void sonarNoturno(Programa *programa)
 
 // main
 
+// executa a tela correspondente ao estado atual do programa
+void executarEstado(Programa *programa)
+{
+    switch (programa->estado) {
+    case ESTADO_MENU_PRICIPAL:
+        menuPrincipal(programa);
+        break;
+    case ESTADO_MENU_MELHORES_POTUACOES:
+        melhoresPontuacoes(programa);
+        break;
+    case ESTADO_FIM_ONDA:
+        fimOnda(programa);
+        break;
+    case ESTADO_FIM_PARTIDA:
+        fimPartida(programa);
+        break;
+    default:
+        executarEstadoOnda(programa);
+        break;
+    }
+}
+
+// executa os estados relacionados às ondas
+void executarEstadoOnda(Programa *programa)
+{
+    switch (programa->estado) {
+    case ESTADO_ONDA_DIURNA:
+        ondaDiurna(programa);
+        break;
+    case ESTADO_ONDA_NOTURNA:
+        ondaNoturna(programa);
+        break;
+    case ESTADO_ONDA_SORTEAR:
+        sortearProximaOnda(programa);
+        break;
+    default:
+        programa->estado = ESTADO_FIM_PROGRAMA;
+        break;
+    }
+}
+
+// laço principal: executa os estados até o fim do programa
 int main()
 {
     Programa programa;
     inicializarPrograma(&programa);
     srand(time(NULL));
 
-    do {
-        switch (programa.estado)  {
-            case ESTADO_MENU_PRICIPAL:
-                menuPrincipal(&programa);
-                break;
-
-            case ESTADO_MENU_MELHORES_POTUACOES:
-                melhoresPontuacoes(&programa);
-                break;
-
-            case ESTADO_FIM_ONDA:
-                fimOnda(&programa);
-                break;
-
-            case ESTADO_FIM_PARTIDA:
-                fimPartida(&programa);
-                break;
-
-            case ESTADO_ONDA_DIURNA:
-                ondaDiurna(&programa);
-                break;
-
-            case ESTADO_ONDA_NOTURNA:
-                ondaNoturna(&programa);
-                break;
-
-            case ESTADO_ONDA_SORTEAR:
-                sortearProximaOnda(&programa);
-                break;
-
-            default:
-                programa.estado = ESTADO_FIM_PROGRAMA;
-                break;
-        }
-    } while (programa.estado != ESTADO_FIM_PROGRAMA);
+    while (programa.estado != ESTADO_FIM_PROGRAMA) {
+        executarEstado(&programa);
+    }
 
     finalizarPrograma(&programa);
     return 0;

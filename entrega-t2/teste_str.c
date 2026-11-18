@@ -1,4 +1,3 @@
-
 // teste_str.c
 // programa com testes do TAD str
 
@@ -32,6 +31,10 @@ static void testa_criacao_e_acesso(void)
     assert(s_ch(s_utf8, -3) == ' ');
     assert(s_ch(s_utf8, -4) == 0x1D11E);
     assert(s_ch(s_utf8, 50) == UNI_INV);
+    assert(s_ch(s_utf8, 12) == UNI_INV);
+    assert(s_ch(s_utf8, -13) == 'R');
+    assert(s_ch(s_utf8, -14) == UNI_INV);
+    assert(s_ch(s_utf8, -50) == UNI_INV);
 
     char *c_utf8 = s_strc(s_utf8);
     assert(strcmp(c_utf8, "Rábica € 𝄞 😀") == 0);
@@ -101,6 +104,31 @@ static void testa_buscas(void)
     assert(s_busca_s(texto, 3, vazia) == 3);
     assert(s_busca_s(texto, -1, vazia) == 11);
 
+    Str emojis = s_cria("a😀b€c😀");
+    Str so_emoji = s_cria("😀");
+    Str euro_c = s_cria("€c");
+    Str letras = s_cria("abc");
+
+    assert(s_busca_c(emojis, 0, so_emoji) == 1);
+    assert(s_busca_c(emojis, 2, so_emoji) == 5);
+    assert(s_busca_rc(emojis, -1, so_emoji) == 5);
+    assert(s_busca_rc(emojis, 5, so_emoji) == 1);
+    assert(s_busca_rc(emojis, 1, so_emoji) == -1);
+    assert(s_busca_nc(emojis, 0, letras) == 1);
+    assert(s_busca_rnc(emojis, -2, letras) == 3);
+    assert(s_busca_rnc(emojis, 1, so_emoji) == 0);
+    assert(s_busca_s(emojis, 0, euro_c) == 3);
+    assert(s_busca_s(emojis, 4, euro_c) == -1);
+    assert(s_busca_s(emojis, 0, so_emoji) == 1);
+    assert(s_busca_s(emojis, 2, so_emoji) == 5);
+    assert(s_busca_c(vazia, 0, conjunto) == -1);
+    assert(s_busca_rc(vazia, -1, conjunto) == -1);
+    assert(s_busca_s(vazia, 0, sub) == -1);
+
+    s_destroi(emojis);
+    s_destroi(so_emoji);
+    s_destroi(euro_c);
+    s_destroi(letras);
     s_destroi(texto);
     s_destroi(conjunto);
     s_destroi(nao_espaco);
@@ -280,6 +308,68 @@ static void testa_autoatribuicao(void)
     assert(strcmp(c3, "petpet") == 0);
     free(c3);
 
+    s_insere(s, 3, s);
+    char *c4 = s_strc(s);
+    assert(strcmp(c4, "petpetpetpet") == 0);
+    free(c4);
+
+    s_anexa(s, s);
+    assert(s_tam(s) == 24);
+
+    s_substring(s, s, -4, -1);
+    char *c5 = s_strc(s);
+    assert(strcmp(c5, "pet") == 0);
+    free(c5);
+
+    s_substring(s, s, 5, 2);
+    assert(s_tam(s) == 0);
+
+    s_destroi(s);
+}
+
+static void testa_string_longa(void)
+{
+    int n = 100000;
+    Str s = s_cria("");
+
+    for (int i = 0; i < n; i++) {
+        if (i % 2 == 0) {
+            s_anexa_c(s, 'a');
+        } else {
+            s_anexa_c(s, 0x00E1);
+        }
+    }
+    s_anexa_c(s, 0x1F600);
+
+    assert(s_tam(s) == n + 1);
+    assert(s_ch(s, -2) == 0x1F600);
+    assert(s_ch(s, n - 1) == 0x00E1);
+
+    Str emoji = s_cria("😀");
+    Str a_e_a = s_cria("aá");
+    assert(s_busca_c(s, 0, emoji) == n);
+    assert(s_busca_rc(s, -1, emoji) == n);
+    assert(s_busca_nc(s, 0, a_e_a) == n);
+    assert(s_busca_rnc(s, n, a_e_a) == -1);
+    assert(s_busca_s(s, 0, emoji) == n);
+
+    s_apara(s, a_e_a);
+    assert(s_tam(s) == 1);
+
+    Str grande = s_cria_cópia(a_e_a);
+    for (int i = 0; i < 16; i++) {
+        s_anexa(grande, grande);
+    }
+    assert(s_tam(grande) == 2 * 65536);
+
+    s_substring(grande, grande, 10, 3);
+    char *c = s_strc(grande);
+    assert(strcmp(c, "aáa") == 0);
+    free(c);
+
+    s_destroi(grande);
+    s_destroi(emoji);
+    s_destroi(a_e_a);
     s_destroi(s);
 }
 
@@ -312,6 +402,7 @@ int main(void)
     testa_insercao_e_anexo();
     testa_apara();
     testa_autoatribuicao();
+    testa_string_longa();
     testa_arquivo();
 
     Str ok = s_cria("Todos os testes passaram com sucesso!\n");
