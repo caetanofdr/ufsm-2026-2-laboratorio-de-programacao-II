@@ -33,5 +33,5 @@
 ## (b) Mudanças no `grafo.h`
 
 1. **Percorrer todas as arestas de uma vez.** Funções como `g_arestas(g)` e `g_próxima_aresta_do_grafo(g, &origem, &destino)`. Hoje o treinador precisa de um laço pelos nós e outro pelas arestas de cada nó (o próprio código comenta "'Rede' não tem uma função que percorra todas as sinapses").
-2. **Copiar um grafo.** `g_copia(g)`. Hoje copiar uma rede é inserir nó por nó e aresta por aresta, testando ciclo a cada aresta.
-3. **Identificador estável dos nós.** Um identificador que não mude quando um nó é removido, ou `g_busca_nó(g, dado, compara)`. Assim o treinador não precisaria guardar um `id` próprio e procurá-lo percorrendo a rede.
+2. **Copiar um grafo.** `g_copia(g)`. Hoje copiar uma rede é inserir nó por nó e aresta por aresta, testando ciclo a cada aresta: para levar o campeão de uma espécie para a geração seguinte, `espécie_cria_cópia` chama `indivíduo_cria_mistura(campeão, campeão)`, que refaz a rede inteira chamando `rede_insere_sinapse` (e com isso `g_tem_ciclo`) para cada sinapse.
+3. **Identificador estável dos nós.** Um identificador que não mude quando um nó é removido, ou `g_busca_nó(g, dado, compara)`. Hoje a mutação `mutação_remove_neurônio` remove nós com `g_remove_nó`, e isso muda a posição de todos os nós seguintes. Por isso o treinador guarda um `id` próprio em cada neurônio e precisa procurá-lo percorrendo a rede (`indivíduo_neurônio_com_id`). Com um identificador estável no grafo, essa busca não seria necessária.
