@@ -1,17 +1,5 @@
 # Trabalho 3 - Calculadora
 
-## Como executar
-
-1. Deixe um arquivo `input.txt` (uma expressão por linha) na mesma pasta do programa. Ele precisa existir antes de rodar.
-2. Compile e execute:
-
-```
-make
-./programa
-```
-
-O resultado é gravado em `output.txt`, uma resposta por linha.
-
 ## Comandos do make
 
 | Comando | O que faz |
@@ -23,3 +11,5 @@ O resultado é gravado em `output.txt`, uma resposta por linha.
 | `make CC=clang` | Compila usando o `clang`. |
 
 Por padrão o compilador é o `cc` (o do sistema). O `make CC=...` só é necessário se ele não funcionar.
+
+Antes de executar, deixe na mesma pasta do programa um arquivo `input.txt`, com uma expressão por linha. O resultado é gravado em `output.txt`, uma resposta por linha.

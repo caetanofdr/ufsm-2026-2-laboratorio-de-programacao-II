@@ -261,12 +261,12 @@ compile_flags.txt
 .cache/
 
 # ---------- Executáveis dos trabalhos ----------
-entrega-t1/main
-entrega-t1/placar.txt
-entrega-t2/teste_str
-entrega-t3/programa
-entrega-t3/input.txt
-entrega-t3/output.txt
-entrega-t4/cobra
-entrega-t4/testa_grafo
-entrega-t4/G/
+**/entrega-t1/main
+**/entrega-t1/placar.txt
+**/entrega-t2/teste_str
+**/entrega-t3/programa
+**/entrega-t3/input.txt
+**/entrega-t3/output.txt
+**/entrega-t4/cobra
+**/entrega-t4/testa_grafo
+**/entrega-t4/G/
