@@ -180,7 +180,6 @@ static int derrotarInimigo(Programa *programa)
 
     for (int i = 0; i < tamanho; i++) {
         int tipo = programa->partidaAtual.campoAtaques[i];
-
         if (tipo == ESCUDO || tipo == VAZIO) continue;
 
         int resultado = armaCorrespondeInimigo(programa, i);

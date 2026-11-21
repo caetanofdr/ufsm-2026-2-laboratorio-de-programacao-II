@@ -1,0 +1,13 @@
+Nota da autoavaliação: 9,5
+
+Justificativa
+
+Sobre o desenvolvimento dos trabalhos, todos foram entregues dentro do prazo, funcionando, seguindo as regras dos enunciados e aplicando os conteúdos apresentados durante a disciplina. Depois da entrega de cada um, todos os comentários do monitor foram levados em consideração para a entrega final: corrigi todos os problemas apontados na planilha, melhorei o desempenho dos algoritmos com as sugestões e aprimorei o uso de memória dos programas. Para garantir isso, testei os programas com os sanitizers do compilador, que não apontaram erros nem vazamentos de memória. Acredito que todos os trabalhos foram muito importantes para a fixação dos conteúdos da cadeira; eles me fizeram colocar em prática tudo o que eu vi em aula e estimularam a pesquisa para as soluções dos problemas que eu enfrentava durante as implementações.
+
+Sobre a aprendizagem do conteúdo, acredito que aprendi todos os conceitos, estruturas, implementações e algoritmos estudados em sala de aula. Os tipos abstratos de dados foram a base de todos os trabalhos, e com eles aprendi a separar a interface da implementação, escondendo de quem usa o TAD como ele funciona por dentro; apliquei essa ideia também ao reorganizar o trabalho 1 em módulos.
+Sobre listas, implementei tanto a alocação contígua, na string do T2, quanto a encadeada, na lista duplamente encadeada do T3 e na fila do T4, e entendi as vantagens e desvantagens de cada uma, além da diferença entre o encadeamento simples e o duplo e de quando usar cada um. No T3, a mesma lista oferecia operações de pilha, fila e deque, e a calculadora usou duas pilhas, o que me mostrou que essas estruturas são listas com restrições sobre onde se insere e se remove.
+Em grafos, implementei o TAD no T4 com matriz de adjacência, entendendo quando ela é vantajosa em relação à lista de adjacência, além dos algoritmos de detecção de ciclos e de ordenação topológica. Na parte 3, a análise do programa de treino me fez pensar em qual estrutura de dados se encaixa melhor em cada problema.
+
+As árvores binárias e as árvores binárias de busca não foram cobradas diretamente nos trabalhos, mas estudei esses conteúdos pelas aulas e pelo material da disciplina e entendi a importância do equilíbrio da árvore para manter a eficiência das operações, chegando a propor árvores AA como alternativa na parte 3 do T4.
+
+Considerando tudo isso, acredito que 9,5 representa bem meu desempenho: os trabalhos cumpriram o que foi pedido e os conteúdos foram assimilados, mas a primeira versão dos dois primeiros trabalhos ainda tinha pontos a melhorar, apontados pelo monitor.
