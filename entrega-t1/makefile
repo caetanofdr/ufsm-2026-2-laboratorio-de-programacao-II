@@ -1,12 +1,18 @@
 CC = cc
-CFLAGS = -Wall -Wextra
+CFLAGS = -Wall -Wextra -Iprograma -Iterminal -Iplacar -Imenus -Ipartida \
+	-Ionda -Isom
 LDLIBS = -lm
 
-main: main.c
-	$(CC) $(CFLAGS) -o main main.c $(LDLIBS)
+FONTES = main.c programa/programa.c terminal/terminal.c placar/placar.c \
+	menus/menus.c partida/partida.c onda/onda.c som/som.c
+CABECALHOS = programa/programa.h terminal/terminal.h placar/placar.h \
+	menus/menus.h partida/partida.h onda/onda.h som/som.h
 
-debug: main.c
-	$(CC) $(CFLAGS) -g -fsanitize=address,undefined -o main main.c $(LDLIBS)
+main: $(FONTES) $(CABECALHOS)
+	$(CC) $(CFLAGS) -o main $(FONTES) $(LDLIBS)
+
+debug: $(FONTES) $(CABECALHOS)
+	$(CC) $(CFLAGS) -g -fsanitize=address,undefined -o main $(FONTES) $(LDLIBS)
 
 run: main
 	./main
