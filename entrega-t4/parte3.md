@@ -5,7 +5,7 @@
 ### 1. Vetor fixo de indivíduos em cada espécie
 
 - **Problema:** a `struct espécie` guarda os indivíduos em `indivíduos[MAX_IND_ESP]`, com 500 posições. O vetor de espécies da geração (`espécies[MAX_ESPÉCIES]`) também tem 500.
-- **Por que é um problema:** todas as espécies juntas têm 500 indivíduos, mas cada uma reserva 500 lugares. O número de espécies varia de dezenas a quase 500 (no início do treino, quase cada indivíduo forma uma espécie), então quase todo esse espaço fica vazio: com 490 espécies, são 245 000 posições reservadas para 500 indivíduos. Se o limite for ultrapassado, o `assert` aborta o programa.
+- **Por que é um problema:** todas as espécies juntas têm 500 indivíduos, mas cada uma reserva 500 lugares. O número de espécies varia de dezenas a quase 500 (no início do treino, quase cada indivíduo forma uma espécie), então quase todo esse espaço fica vazio: com 490 espécies, são 245.000 posições reservadas para 500 indivíduos. Se o limite for ultrapassado, o `assert` aborta o programa.
 - **Alternativa:** lista com implementação contígua e alocação dinâmica, que aumenta a capacidade quando enche.
 - **Por que melhora:** a memória acompanha o número real de indivíduos, não existe mais limite fixo, e o acesso por posição (usado no sorteio dos pais) continua direto.
 
@@ -14,7 +14,7 @@
 - **Problema:** os ids dos neurônios criados por mutação ficam no vetor `inovações[10000]`, e `id_neurônio_entre` procura um par (`id_origem`, `id_destino`) percorrendo o vetor do início.
 - **Por que é um problema:** a busca fica mais lenta à medida que o treino avança. Quando o vetor enche, ids novos deixam de ser registrados, e a mesma inovação passa a receber ids diferentes em redes diferentes.
 - **Alternativa:** árvore AA (ABB auto-equilibrada) com chave (`id_origem`, `id_destino`).
-- **Por que melhora:** a busca percorre no máximo a altura da árvore, próxima de log₂ n (cerca de 14 comparações para 10000 inovações), e a árvore cresce sem limite.
+- **Por que melhora:** a busca percorre no máximo a altura da árvore, próxima de log₂ n (cerca de 14 comparações para 10.000 inovações), e a árvore cresce sem limite.
 
 ### 3. Busca de neurônio por id percorrendo a rede
 
